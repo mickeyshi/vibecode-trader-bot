@@ -11,6 +11,7 @@ import type {
   BacktestReport,
   BacktestRequest,
   Backtester,
+  BacktestEquityPoint,
   BacktestRiskRejection
 } from "./interfaces.js";
 
@@ -63,7 +64,12 @@ export class SimpleBacktester implements Backtester {
       { feeRate: request.feeRate, slippageBps: request.slippageBps }
     );
 
-    const equityCurve: number[] = [request.startingEquity];
+    const equityCurve: BacktestEquityPoint[] = [
+      {
+        timestamp: request.candles.at(0)?.openTime ?? new Date(0),
+        equity: request.startingEquity
+      }
+    ];
     const riskRejections: BacktestRiskRejection[] = [];
     const candles = [...request.candles].sort(
       (a, b) => a.closeTime.getTime() - b.closeTime.getTime()
@@ -118,7 +124,10 @@ export class SimpleBacktester implements Backtester {
       }
 
       // Capture equity after each replayed candle so drawdown can be computed at the end.
-      equityCurve.push((await portfolioStore.getAccountSnapshot()).equity);
+      equityCurve.push({
+        timestamp: candle.closeTime,
+        equity: (await portfolioStore.getAccountSnapshot()).equity
+      });
     }
 
     const finalSnapshot = await portfolioStore.getAccountSnapshot();
@@ -136,6 +145,7 @@ export class SimpleBacktester implements Backtester {
       orders: portfolioStore.getOrders(),
       fills: portfolioStore.getFills(),
       riskRejections,
+      equityCurve,
       assumptions: [
         "Orders fill immediately at the latest candle close.",
         `Fee rate: ${request.feeRate}.`,
@@ -156,12 +166,13 @@ function toTick(candle: Candle): MarketTick {
   };
 }
 
-function calculateMaxDrawdownPct(equityCurve: number[]): number {
+function calculateMaxDrawdownPct(equityCurve: BacktestEquityPoint[]): number {
   // Drawdown measures the worst peak-to-trough equity decline observed during the run.
-  let peak = equityCurve[0] ?? 0;
+  let peak = equityCurve[0]?.equity ?? 0;
   let maxDrawdown = 0;
 
-  for (const equity of equityCurve) {
+  for (const point of equityCurve) {
+    const equity = point.equity;
     peak = Math.max(peak, equity);
     if (peak > 0) {
       maxDrawdown = Math.max(maxDrawdown, (peak - equity) / peak);

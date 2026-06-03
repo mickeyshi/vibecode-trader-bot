@@ -3,6 +3,7 @@ export * from "./data/in-memory-stores.js";
 export * from "./data/interfaces.js";
 export * from "./data/simple-feature-builder.js";
 export * from "./eval/interfaces.js";
+export * from "./eval/backtest-cli.js";
 export * from "./eval/simple-backtester.js";
 export * from "./execution/interfaces.js";
 export * from "./execution/paper-order-executor.js";

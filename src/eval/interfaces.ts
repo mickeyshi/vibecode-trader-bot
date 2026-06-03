@@ -7,6 +7,11 @@ export interface BacktestRiskRejection {
   timestamp: Date;
 }
 
+export interface BacktestEquityPoint {
+  timestamp: Date;
+  equity: number;
+}
+
 export interface BacktestRequest {
   strategyId: string;
   symbols: string[];
@@ -26,6 +31,7 @@ export interface BacktestReport {
   orders: Order[];
   fills: Fill[];
   riskRejections: BacktestRiskRejection[];
+  equityCurve: BacktestEquityPoint[];
   assumptions: string[];
 }
 

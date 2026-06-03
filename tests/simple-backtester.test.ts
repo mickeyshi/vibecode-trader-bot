@@ -25,6 +25,7 @@ describe("SimpleBacktester", () => {
     expect(report.orders.length).toBeGreaterThan(0);
     expect(report.fills.length).toBe(report.orders.length);
     expect(report.riskRejections.length).toBeGreaterThanOrEqual(0);
+    expect(report.equityCurve.length).toBeGreaterThan(1);
     expect(report.endingEquity).toBeGreaterThan(0);
     expect(report.assumptions).toContain("Orders fill immediately at the latest candle close.");
   });

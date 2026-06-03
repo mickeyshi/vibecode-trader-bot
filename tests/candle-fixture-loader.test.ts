@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { parseCandleCsv, parseCandleJson } from "../src/fixtures/candle-fixture-loader.js";
+import {
+  loadCandlesFromFixture,
+  parseCandleCsv,
+  parseCandleJson
+} from "../src/fixtures/candle-fixture-loader.js";
 
 describe("candle fixture loader", () => {
   it("parses standard OHLCV CSV", () => {
@@ -51,5 +55,17 @@ describe("candle fixture loader", () => {
     expect(candles[0]?.symbol).toBe("USDBTC");
     expect(candles[0]?.closeTime.toISOString()).toBe("2010-07-19T00:00:00.000Z");
     expect(candles[0]?.close).toBe(12.3762);
+  });
+
+  it("loads the curated Stooq sample fixture", async () => {
+    const candles = await loadCandlesFromFixture("test-fixtures/stooq-1mcay-sample.txt", {
+      symbol: "1MCAY.B",
+      timeframe: "1d"
+    });
+
+    expect(candles).toHaveLength(7);
+    expect(candles[0]?.symbol).toBe("1MCAY.B");
+    expect(candles[0]?.closeTime.toISOString()).toBe("1994-03-15T00:00:00.000Z");
+    expect(candles.at(-1)?.close).toBe(4.03);
   });
 });

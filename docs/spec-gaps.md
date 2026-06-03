@@ -10,15 +10,17 @@ This list tracks known gaps between the current framework slice and a trading bo
 - The first vertical slice uses in-memory stores, a moving-average strategy, a fixed-notional mapper, a basic risk engine, and a paper executor.
 - Portfolio accounting now tracks realized PnL for position reductions, preserves average entry price on partial exits, and defaults to long-only behavior.
 - Backtest reports now include rejected risk decisions for audit-oriented debugging.
+- A small committed Stooq sample fixture is available for routine loader tests.
+- The backtest CLI supports configurable fixture path, symbol, starting equity, fees, slippage, strategy windows, and full JSON report export.
 
 ## Near-Term Gaps
 
 - **Portfolio accounting:** add deeper short-position support only after an explicit shorting/leverage design decision. Current behavior is long-only by default.
 - **Risk controls:** improve fee-aware buying-power checks and decide whether leverage should be completely disabled or configurable by strategy/account type.
-- **Fixture selection:** add a small curated Stooq sample fixture rather than pointing routine tests at the large downloaded dataset.
+- **Fixture selection:** add one or two more curated samples only if they cover meaningfully different formats or edge cases.
 - **Backtest realism:** model spread, partial fills, skipped fills, market holidays, and missing data.
-- **CLI configuration:** replace hardcoded starting equity, fees, slippage, windows, and symbol with validated command-line or config-file options.
-- **Reporting:** export full orders/fills/equity curve to JSON or CSV, not only the compact console summary.
+- **CLI configuration:** add config-file support only if repeated experiments make long CLI commands painful.
+- **Reporting:** add CSV exports and richer performance metrics after the core accounting model stabilizes.
 
 ## Medium-Term Gaps
 

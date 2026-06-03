@@ -25,8 +25,13 @@ USDBTC,D,20100719,000000,11.6496,12.9483,10.7446,12.3762,0,0
 Run one with:
 
 ```bash
-npm run backtest -- test-fixtures/data/daily/world/currencies/other/usdbtc.txt
+npm run backtest -- test-fixtures/stooq-1mcay-sample.txt 1MCAY.B
+npm run backtest -- --fixture test-fixtures/stooq-1mcay-sample.txt --symbol 1MCAY.B
 ```
+
+`test-fixtures/stooq-1mcay-sample.txt` is a small committed sample used for routine
+tests. Larger downloaded Stooq datasets belong under `test-fixtures/data/`, which is
+ignored by Git and should be treated as local-only exploration data.
 
 ## Supported JSON Shapes
 
