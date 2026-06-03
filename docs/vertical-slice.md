@@ -6,13 +6,14 @@ This pass proves the bot can move data through the core architecture without cho
 
 ```text
 Fixture candles
-  -> InMemoryMarketDataStore
-  -> SimpleFeatureBuilder
-  -> MovingAverageCrossoverStrategy
-  -> FixedNotionalIntentMapper
-  -> BasicRiskEngine
-  -> PaperOrderExecutor
-  -> InMemoryPortfolioStore
+  -> CandleReplayEngine
+     -> InMemoryMarketDataStore
+     -> SimpleFeatureBuilder
+     -> MovingAverageCrossoverStrategy
+     -> FixedNotionalIntentMapper
+     -> BasicRiskEngine
+     -> PaperOrderExecutor
+     -> InMemoryPortfolioStore
   -> BacktestReport
 ```
 
@@ -30,6 +31,7 @@ Fixture candles
 - Repeated backtest settings can be loaded from `backtest.config.example.json` or another JSON file with the same flat shape.
 - JSON config files are validated for known keys and expected value types before running.
 - Data-quality gap checks use a configured market calendar: `weekday` for exchange-style weekday sessions or `crypto-24-7` for continuously traded daily markets. Exchange holidays can be supplied as explicit `YYYY-MM-DD` dates.
+- `SimpleBacktester` delegates candle replay to `CandleReplayEngine`, so historical replay uses the same market-data, feature, strategy, risk, execution, and portfolio path that future paper mode should reuse.
 
 ## Intentional Limitations
 
@@ -62,5 +64,5 @@ Track the fuller roadmap in `docs/spec-gaps.md`.
 - Add schema-backed config validation if the flat JSON config grows more complex.
 - Add maintained exchange holiday datasets only if manually configured holidays become too brittle.
 - Add richer per-trade analytics if the current closed-trade export is not enough for review.
-- Add replay mode that uses the same loop as paper trading.
+- Adapt `CandleReplayEngine` for paper-mode feeds when the first live data provider is selected.
 - Add config validation before adding external feeds or exchange integrations.

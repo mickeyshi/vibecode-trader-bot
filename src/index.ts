@@ -4,6 +4,7 @@ export * from "./data/interfaces.js";
 export * from "./data/simple-feature-builder.js";
 export * from "./eval/interfaces.js";
 export * from "./eval/backtest-cli.js";
+export * from "./eval/candle-replay-engine.js";
 export * from "./eval/market-calendars.js";
 export * from "./eval/simple-backtester.js";
 export * from "./execution/interfaces.js";

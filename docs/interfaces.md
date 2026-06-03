@@ -23,7 +23,15 @@ MarketFeed/EventFeed
 - `risk/`: approves, rejects, or modifies order intent before execution.
 - `execution/`: implements paper or live order placement.
 - `portfolio/`: records orders, fills, positions, fee-aware cost basis, and account snapshots.
-- `eval/`: reuses strategy and risk concepts for backtests and replay.
+- `eval/`: reuses strategy and risk concepts for backtests and candle replay.
+
+## Replay Boundary
+
+`CandleReplayEngine` is the shared historical replay loop. It writes candles into the market
+store, builds strategy context, maps signals to order intents, evaluates risk, routes approved
+intents through paper execution, updates portfolio state, and records equity/risk/data-quality
+outputs. `SimpleBacktester` wraps that replay result into return, drawdown, trade, and report
+metrics.
 
 ## Evaluation Outputs
 

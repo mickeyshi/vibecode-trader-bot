@@ -21,6 +21,7 @@ This list tracks known gaps between the current framework slice and a trading bo
 - Backtest config files are runtime-validated for known keys and expected value shapes.
 - Backtest reports include per-trade detail rows and CSV export for closed trades.
 - Data-quality checks support market calendars: weekday sessions, crypto 24/7 sessions, and configured exchange holiday dates.
+- Replay mode is represented by `CandleReplayEngine`, which runs historical candles through the same market-data, feature, strategy, risk, execution, and portfolio path used by backtests.
 
 ## Near-Term Gaps
 
@@ -29,7 +30,6 @@ This list tracks known gaps between the current framework slice and a trading bo
 
 ## Medium-Term Gaps
 
-- **Replay mode:** run historical data through the same event loop planned for paper trading.
 - **Data validation:** add runtime schemas for fixture rows, exchange payloads, config, and environment variables.
 - **Strategy lifecycle:** define how strategies are registered, parameterized, enabled, disabled, and compared.
 - **Event/news inputs:** wire event feeds into both feature generation and risk controls.
