@@ -8,19 +8,24 @@ This list tracks known gaps between the current framework slice and a trading bo
 - Interfaces exist for feeds, data, strategies, risk, execution, portfolio, and evaluation.
 - Backtests can run against synthetic CSV/JSON fixtures and Stooq text exports.
 - The first vertical slice uses in-memory stores, a moving-average strategy, a fixed-notional mapper, a basic risk engine, and a paper executor.
-- Portfolio accounting now tracks realized PnL for position reductions, preserves average entry price on partial exits, and defaults to long-only behavior.
+- Portfolio accounting now uses fee-aware cost basis, tracks realized/unrealized PnL, preserves average entry price on partial exits, guards against negative cash, and defaults to long-only behavior.
 - Backtest reports now include rejected risk decisions for audit-oriented debugging.
 - A small committed Stooq sample fixture is available for routine loader tests.
 - The backtest CLI supports configurable fixture path, symbol, starting equity, fees, slippage, strategy windows, and full JSON report export.
+- Paper execution can model spread, deterministic partial fills, and deterministic skipped fills.
+- Backtest reports include richer metrics, CSV exports, and missing-data gap warnings.
+- Backtest CLI settings can be loaded from a JSON config file, with explicit CLI flags taking precedence.
+- Backtest metrics include closed-trade count, win/loss counts, win rate, gross profit/loss, and profit factor.
+- Portfolio policy is long-only, cash-only, average-cost-only, with no borrow-cost or wash-sale model.
+- Curated Stooq fixtures now include both a bond-style sample and a crypto-style sample.
+- Backtest config files are runtime-validated for known keys and expected value shapes.
+- Backtest reports include per-trade detail rows and CSV export for closed trades.
+- Data-quality checks support market calendars: weekday sessions, crypto 24/7 sessions, and configured exchange holiday dates.
 
 ## Near-Term Gaps
 
-- **Portfolio accounting:** add deeper short-position support only after an explicit shorting/leverage design decision. Current behavior is long-only by default.
-- **Risk controls:** improve fee-aware buying-power checks and decide whether leverage should be completely disabled or configurable by strategy/account type.
-- **Fixture selection:** add one or two more curated samples only if they cover meaningfully different formats or edge cases.
-- **Backtest realism:** model spread, partial fills, skipped fills, market holidays, and missing data.
-- **CLI configuration:** add config-file support only if repeated experiments make long CLI commands painful.
-- **Reporting:** add CSV exports and richer performance metrics after the core accounting model stabilizes.
+- **CLI configuration:** move to a dedicated schema library if the file format grows beyond the current flat JSON shape.
+- **Reporting:** add richer per-trade analytics only if the current closed-trade rows are not enough for review.
 
 ## Medium-Term Gaps
 

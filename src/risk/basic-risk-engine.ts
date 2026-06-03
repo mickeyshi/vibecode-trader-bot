@@ -8,6 +8,9 @@ export interface BasicRiskConfig {
   blockHighImpactEventsAtOrAbove: number;
   allowShort?: boolean;
   maxGrossLeverage?: number;
+  estimatedFeeRate?: number;
+  estimatedSlippageBps?: number;
+  estimatedSpreadBps?: number;
 }
 
 export class BasicRiskEngine implements RiskEngine {
@@ -24,7 +27,15 @@ export class BasicRiskEngine implements RiskEngine {
     }
 
     appliedRules.push("max-order-notional");
-    const orderNotional = intent.quantity * price;
+    const executionPrice = estimateExecutionPrice(
+      price,
+      intent.side,
+      this.config.estimatedSlippageBps ?? 0,
+      this.config.estimatedSpreadBps ?? 0
+    );
+    const orderNotional = intent.quantity * executionPrice;
+    const estimatedFee = orderNotional * (this.config.estimatedFeeRate ?? 0);
+    const estimatedCashCost = orderNotional + estimatedFee;
     if (orderNotional > this.config.maxOrderNotional) {
       return reject(
         `Order notional ${orderNotional.toFixed(2)} exceeds max order notional.`,
@@ -40,9 +51,9 @@ export class BasicRiskEngine implements RiskEngine {
     const nextQuantity = (currentPosition?.quantity ?? 0) + signedQuantity;
 
     appliedRules.push("cash-and-short-guard");
-    if (intent.side === "buy" && orderNotional > context.buyingPower) {
+    if (intent.side === "buy" && estimatedCashCost > context.buyingPower) {
       return reject(
-        `Order notional ${orderNotional.toFixed(2)} exceeds buying power ${context.buyingPower.toFixed(2)}.`,
+        `Estimated buy cost ${estimatedCashCost.toFixed(2)} exceeds buying power ${context.buyingPower.toFixed(2)}.`,
         appliedRules
       );
     }
@@ -108,4 +119,14 @@ function reject(reason: string, appliedRules: string[]): RiskDecision {
     reason,
     appliedRules
   };
+}
+
+function estimateExecutionPrice(
+  price: number,
+  side: "buy" | "sell",
+  slippageBps: number,
+  spreadBps: number
+): number {
+  const adjustment = slippageBps / 10_000 + spreadBps / 20_000;
+  return side === "buy" ? price * (1 + adjustment) : price * (1 - adjustment);
 }

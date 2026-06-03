@@ -113,6 +113,41 @@ describe("BasicRiskEngine", () => {
     expect(decision.reason).toContain("exceeds buying power");
   });
 
+  it("includes estimated fees in buying-power checks", async () => {
+    const engine = new BasicRiskEngine({
+      maxOrderNotional: 20_000,
+      maxPositionNotional: 20_000,
+      maxDailyLossPct: 0.05,
+      blockHighImpactEventsAtOrAbove: 10,
+      estimatedFeeRate: 0.01
+    });
+
+    const decision = await engine.evaluate(
+      {
+        symbol: "DEMO/USD",
+        side: "buy",
+        type: "market",
+        quantity: 10,
+        limitPrice: 100,
+        reason: "test",
+        strategyId: "test-strategy"
+      },
+      {
+        mode: "paper",
+        openPositions: [],
+        recentEvents: [],
+        dailyRealizedPnl: 0,
+        accountEquity: 10_000,
+        cash: 1_000,
+        buyingPower: 1_000,
+        now: new Date()
+      }
+    );
+
+    expect(decision.approved).toBe(false);
+    expect(decision.reason).toContain("Estimated buy cost 1010.00");
+  });
+
   it("rejects short sells by default", async () => {
     const engine = new BasicRiskEngine({
       maxOrderNotional: 20_000,

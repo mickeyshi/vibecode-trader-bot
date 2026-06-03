@@ -5,6 +5,9 @@ export interface AccountSnapshot {
   cash: number;
   buyingPower: number;
   realizedPnl: number;
+  unrealizedPnl: number;
+  positionValue: number;
+  grossExposure: number;
   currency: string;
   timestamp: Date;
 }

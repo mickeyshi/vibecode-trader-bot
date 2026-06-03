@@ -33,6 +33,14 @@ npm run backtest -- --fixture test-fixtures/stooq-1mcay-sample.txt --symbol 1MCA
 tests. Larger downloaded Stooq datasets belong under `test-fixtures/data/`, which is
 ignored by Git and should be treated as local-only exploration data.
 
+`test-fixtures/stooq-hbar-sample.txt` is a second committed Stooq sample with crypto-style
+daily rows, including weekend candles. Use it when exercising symbols that trade outside
+traditional weekday market hours:
+
+```bash
+npm run backtest -- --fixture test-fixtures/stooq-hbar-sample.txt --symbol HBAR.V --max-data-gap-days 4
+```
+
 ## Supported JSON Shapes
 
 The loader accepts an array of candle-like rows:
@@ -69,6 +77,33 @@ It also accepts the Alpha Vantage daily time-series JSON shape:
 ## Public Demo Sources
 
 Use public data for demos and integration tests, not deterministic unit tests. Prefer committing small synthetic fixtures for repeatable tests.
+
+Backtest reports include missing-data gap warnings. The default threshold is four days, which
+allows ordinary weekends in weekday-market daily data while still flagging larger gaps:
+
+```bash
+npm run backtest -- --fixture test-fixtures/stooq-1mcay-sample.txt --symbol 1MCAY.B --max-data-gap-days 4
+```
+
+Market-calendar options control which dates are expected sessions:
+
+```bash
+npm run backtest -- --fixture test-fixtures/stooq-hbar-sample.txt --symbol HBAR.V --market-calendar crypto-24-7
+npm run backtest -- --fixture test-fixtures/stooq-1mcay-sample.txt --symbol 1MCAY.B --market-calendar weekday --market-holidays 2026-01-01,2026-12-25
+```
+
+Supported calendars are `weekday` and `crypto-24-7`. Exchange-specific holidays are explicit
+config values for now, not a maintained holiday database.
+
+For repeated experiments, put the same options in a JSON config file and override only the
+values you are changing:
+
+```bash
+npm run backtest -- --config backtest.config.example.json --starting-equity 50000
+```
+
+Config files are intentionally flat JSON objects. Unknown keys and invalid value types fail
+before a backtest starts.
 
 - Alpha Vantage provides daily time-series responses in JSON or CSV, including a documented `demo` API-key example for IBM.
 - Stooq publishes free historical market-data downloads that can be useful for CSV-based experiments.

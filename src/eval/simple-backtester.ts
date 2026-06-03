@@ -1,4 +1,4 @@
-import type { Candle, MarketTick } from "../core/types.js";
+import type { Candle, Fill, MarketTick } from "../core/types.js";
 import { InMemoryEventStore, InMemoryMarketDataStore } from "../data/in-memory-stores.js";
 import { SimpleFeatureBuilder } from "../data/simple-feature-builder.js";
 import { PaperOrderExecutor } from "../execution/paper-order-executor.js";
@@ -7,12 +7,15 @@ import { BasicRiskEngine } from "../risk/basic-risk-engine.js";
 import type { RiskEngine } from "../risk/interfaces.js";
 import { FixedNotionalIntentMapper } from "../strategies/fixed-notional-intent-mapper.js";
 import type { SignalToIntentMapper, Strategy } from "../strategies/interfaces.js";
+import { createMarketCalendar } from "./market-calendars.js";
 import type {
   BacktestReport,
   BacktestRequest,
   Backtester,
+  BacktestDataQualityWarning,
   BacktestEquityPoint,
-  BacktestRiskRejection
+  BacktestRiskRejection,
+  BacktestTrade
 } from "./interfaces.js";
 
 export interface SimpleBacktesterConfig {
@@ -47,11 +50,21 @@ export class SimpleBacktester implements Backtester {
         maxPositionNotional: request.startingEquity * 0.5,
         maxDailyLossPct: 0.05,
         blockHighImpactEventsAtOrAbove: 10,
-        maxGrossLeverage: 1
+        maxGrossLeverage: 1,
+        estimatedFeeRate: request.feeRate,
+        estimatedSlippageBps: request.slippageBps,
+        estimatedSpreadBps: request.spreadBps ?? 0
       });
 
     // Paper execution simulates fills using the latest known tick. In this backtester, that
     // tick is created from the current candle close, so fills are intentionally optimistic.
+    const executorConfig = {
+      feeRate: request.feeRate,
+      slippageBps: request.slippageBps,
+      spreadBps: request.spreadBps ?? 0,
+      fillRatio: request.fillRatio ?? 1,
+      ...(request.skipFillEvery !== undefined ? { skipFillEvery: request.skipFillEvery } : {})
+    };
     const executor = new PaperOrderExecutor(
       portfolioStore,
       async (symbol) => {
@@ -61,7 +74,7 @@ export class SimpleBacktester implements Backtester {
         }
         return tick.last;
       },
-      { feeRate: request.feeRate, slippageBps: request.slippageBps }
+      executorConfig
     );
 
     const equityCurve: BacktestEquityPoint[] = [
@@ -73,6 +86,15 @@ export class SimpleBacktester implements Backtester {
     const riskRejections: BacktestRiskRejection[] = [];
     const candles = [...request.candles].sort(
       (a, b) => a.closeTime.getTime() - b.closeTime.getTime()
+    );
+    const marketCalendar = createMarketCalendar({
+      ...(request.marketCalendar !== undefined ? { marketCalendar: request.marketCalendar } : {}),
+      ...(request.marketHolidays !== undefined ? { marketHolidays: request.marketHolidays } : {})
+    });
+    const dataQualityWarnings = detectDataQualityWarnings(
+      candles,
+      request.maxDataGapDays ?? 4,
+      marketCalendar
     );
 
     for (const candle of candles) {
@@ -133,6 +155,11 @@ export class SimpleBacktester implements Backtester {
     const finalSnapshot = await portfolioStore.getAccountSnapshot();
     const firstCandle = candles.at(0);
     const lastCandle = candles.at(-1);
+    const orders = portfolioStore.getOrders();
+    const fills = portfolioStore.getFills();
+    const totalFees = fills.reduce((sum, fill) => sum + fill.fee, 0);
+    const trades = calculateClosedTrades(fills);
+    const tradeMetrics = calculateClosedTradeMetrics(trades);
 
     return {
       strategyId: request.strategyId,
@@ -142,17 +169,131 @@ export class SimpleBacktester implements Backtester {
       totalReturnPct:
         ((finalSnapshot.equity - request.startingEquity) / request.startingEquity) * 100,
       maxDrawdownPct: calculateMaxDrawdownPct(equityCurve),
-      orders: portfolioStore.getOrders(),
-      fills: portfolioStore.getFills(),
+      orders,
+      fills,
+      trades,
       riskRejections,
       equityCurve,
+      metrics: {
+        startingEquity: request.startingEquity,
+        endingEquity: finalSnapshot.equity,
+        endingCash: finalSnapshot.cash,
+        finalPositionValue: finalSnapshot.positionValue,
+        finalGrossExposure: finalSnapshot.grossExposure,
+        finalRealizedPnl: finalSnapshot.realizedPnl,
+        finalUnrealizedPnl: finalSnapshot.unrealizedPnl,
+        netProfit: finalSnapshot.equity - request.startingEquity,
+        totalFees,
+        filledOrderCount: fills.length,
+        skippedOrderCount: orders.filter((order) => order.status === "cancelled").length,
+        ...tradeMetrics
+      },
+      dataQualityWarnings,
       assumptions: [
         "Orders fill immediately at the latest candle close.",
         `Fee rate: ${request.feeRate}.`,
-        `Slippage: ${request.slippageBps} bps.`
+        `Slippage: ${request.slippageBps} bps.`,
+        `Spread: ${request.spreadBps ?? 0} bps.`,
+        `Fill ratio: ${request.fillRatio ?? 1}.`,
+        `Skip fill every: ${request.skipFillEvery ?? "never"}.`,
+        `Missing data gap threshold: ${request.maxDataGapDays ?? 4} days.`,
+        `Market calendar: ${marketCalendar.id}.`,
+        `Configured market holidays: ${(request.marketHolidays ?? []).length}.`
       ]
     };
   }
+}
+
+function calculateClosedTrades(fills: Fill[]): BacktestTrade[] {
+  let openQuantity = 0;
+  let openCost = 0;
+  let openEntryFees = 0;
+  let entryTimestamp: Date | undefined;
+  let nextTradeNumber = 1;
+  const trades: BacktestTrade[] = [];
+
+  for (const fill of fills) {
+    if (fill.side === "buy") {
+      openQuantity += fill.quantity;
+      openCost += fill.price * fill.quantity + fill.fee;
+      openEntryFees += fill.fee;
+      entryTimestamp ??= fill.timestamp;
+      continue;
+    }
+
+    const closedQuantity = Math.min(openQuantity, fill.quantity);
+    if (closedQuantity <= 0 || !entryTimestamp) {
+      continue;
+    }
+
+    const averageEntryPrice = openCost / openQuantity;
+    const entryCost = averageEntryPrice * closedQuantity;
+    const exitProceeds = fill.price * closedQuantity;
+    const allocatedEntryFees = openEntryFees * (closedQuantity / openQuantity);
+    const allocatedExitFee = fill.fee * (closedQuantity / fill.quantity);
+    const pnl = exitProceeds - allocatedExitFee - entryCost;
+
+    trades.push({
+      id: `trade-${nextTradeNumber++}`,
+      symbol: fill.symbol,
+      side: "long",
+      entryTimestamp,
+      exitTimestamp: fill.timestamp,
+      quantity: closedQuantity,
+      averageEntryPrice,
+      exitPrice: fill.price,
+      entryCost,
+      exitProceeds,
+      fees: allocatedEntryFees + allocatedExitFee,
+      pnl,
+      returnPct: entryCost === 0 ? 0 : (pnl / entryCost) * 100
+    });
+
+    openQuantity -= closedQuantity;
+    openCost -= entryCost;
+    openEntryFees -= allocatedEntryFees;
+
+    if (openQuantity <= 1e-10) {
+      openQuantity = 0;
+      openCost = 0;
+      openEntryFees = 0;
+      entryTimestamp = undefined;
+    }
+  }
+
+  return trades;
+}
+
+function calculateClosedTradeMetrics(
+  trades: BacktestTrade[]
+): Pick<
+  BacktestReport["metrics"],
+  | "closedTradeCount"
+  | "winningTradeCount"
+  | "losingTradeCount"
+  | "winRatePct"
+  | "grossProfit"
+  | "grossLoss"
+  | "profitFactor"
+> {
+  const closedPnls = trades.map((trade) => trade.pnl);
+  const grossProfit = closedPnls.filter((pnl) => pnl > 0).reduce((sum, pnl) => sum + pnl, 0);
+  const grossLoss = Math.abs(
+    closedPnls.filter((pnl) => pnl < 0).reduce((sum, pnl) => sum + pnl, 0)
+  );
+  const winningTradeCount = closedPnls.filter((pnl) => pnl > 0).length;
+  const losingTradeCount = closedPnls.filter((pnl) => pnl < 0).length;
+  const closedTradeCount = closedPnls.length;
+
+  return {
+    closedTradeCount,
+    winningTradeCount,
+    losingTradeCount,
+    winRatePct: closedTradeCount === 0 ? 0 : (winningTradeCount / closedTradeCount) * 100,
+    grossProfit,
+    grossLoss,
+    profitFactor: grossLoss === 0 ? null : grossProfit / grossLoss
+  };
 }
 
 function toTick(candle: Candle): MarketTick {
@@ -180,4 +321,42 @@ function calculateMaxDrawdownPct(equityCurve: BacktestEquityPoint[]): number {
   }
 
   return maxDrawdown * 100;
+}
+
+function detectDataQualityWarnings(
+  candles: Candle[],
+  maxDataGapDays: number,
+  marketCalendar: ReturnType<typeof createMarketCalendar>
+): BacktestDataQualityWarning[] {
+  const warnings: BacktestDataQualityWarning[] = [];
+  const previousBySymbol = new Map<string, Candle>();
+  const millisecondsPerDay = 24 * 60 * 60 * 1000;
+
+  for (const candle of candles) {
+    const previous = previousBySymbol.get(candle.symbol);
+    if (previous) {
+      const gapDays =
+        (candle.closeTime.getTime() - previous.closeTime.getTime()) / millisecondsPerDay;
+      const missingSessionCount = marketCalendar.countMissingSessions(
+        previous.closeTime,
+        candle.closeTime
+      );
+      if (gapDays > maxDataGapDays && missingSessionCount > 0) {
+        warnings.push({
+          type: "missing-data-gap",
+          symbol: candle.symbol,
+          calendar: marketCalendar.id,
+          previousTimestamp: previous.closeTime,
+          currentTimestamp: candle.closeTime,
+          gapDays,
+          missingSessionCount,
+          message: `${candle.symbol} has a ${gapDays.toFixed(2)} day candle gap with ${missingSessionCount} missing ${marketCalendar.id} session(s).`
+        });
+      }
+    }
+
+    previousBySymbol.set(candle.symbol, candle);
+  }
+
+  return warnings;
 }

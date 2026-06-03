@@ -4,8 +4,9 @@ import { SimpleBacktester } from "./simple-backtester.js";
 import { MovingAverageCrossoverStrategy } from "../strategies/moving-average-crossover-strategy.js";
 import {
   backtestHelpText,
-  parseBacktestCliArgs,
+  loadBacktestCliConfig,
   summarizeBacktestReport,
+  writeBacktestCsvReports,
   writeBacktestReport
 } from "./backtest-cli.js";
 
@@ -13,8 +14,9 @@ import {
 //   npm run backtest
 //   npm run backtest -- test-fixtures/demo-candles.csv
 //   npm run backtest -- --fixture test-fixtures/stooq-1mcay-sample.txt --symbol 1MCAY.B
+//   npm run backtest -- --config backtest.config.example.json
 //   npm run backtest -- --report reports/backtest.json
-const cli = parseBacktestCliArgs(process.argv.slice(2));
+const cli = await loadBacktestCliConfig(process.argv.slice(2));
 
 if (cli.help) {
   console.log(backtestHelpText());
@@ -41,17 +43,28 @@ const strategy = new MovingAverageCrossoverStrategy({
 const backtester = new SimpleBacktester({ strategy });
 
 // Fees and slippage can dominate backtest results, so the CLI keeps these assumptions explicit.
-const report = await backtester.run({
+const request = {
   strategyId: strategy.id,
   symbols: [symbol],
   candles,
   startingEquity: cli.startingEquity,
   feeRate: cli.feeRate,
-  slippageBps: cli.slippageBps
-});
+  slippageBps: cli.slippageBps,
+  spreadBps: cli.spreadBps,
+  fillRatio: cli.fillRatio,
+  maxDataGapDays: cli.maxDataGapDays,
+  marketCalendar: cli.marketCalendar,
+  marketHolidays: cli.marketHolidays,
+  ...(cli.skipFillEvery !== undefined ? { skipFillEvery: cli.skipFillEvery } : {})
+};
+const report = await backtester.run(request);
 
 if (cli.reportPath) {
   await writeBacktestReport(report, cli.reportPath);
+}
+
+if (cli.reportCsvDir) {
+  await writeBacktestCsvReports(report, cli.reportCsvDir);
 }
 
 console.log(JSON.stringify(summarizeBacktestReport(report), null, 2));

@@ -68,4 +68,16 @@ describe("candle fixture loader", () => {
     expect(candles[0]?.closeTime.toISOString()).toBe("1994-03-15T00:00:00.000Z");
     expect(candles.at(-1)?.close).toBe(4.03);
   });
+
+  it("loads the curated Stooq crypto sample fixture", async () => {
+    const candles = await loadCandlesFromFixture("test-fixtures/stooq-hbar-sample.txt", {
+      symbol: "HBAR.V",
+      timeframe: "1d"
+    });
+
+    expect(candles).toHaveLength(7);
+    expect(candles[0]?.symbol).toBe("HBAR.V");
+    expect(candles[0]?.closeTime.toISOString()).toBe("2019-09-20T00:00:00.000Z");
+    expect(candles.at(-1)?.close).toBe(0.02899);
+  });
 });

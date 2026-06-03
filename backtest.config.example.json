@@ -1,0 +1,18 @@
+{
+  "fixturePath": "test-fixtures/stooq-1mcay-sample.txt",
+  "symbol": "1MCAY.B",
+  "startingEquity": 25000,
+  "feeRate": 0.0005,
+  "slippageBps": 2,
+  "spreadBps": 4,
+  "fillRatio": 0.5,
+  "skipFillEvery": 3,
+  "maxDataGapDays": 4,
+  "marketCalendar": "weekday",
+  "marketHolidays": [],
+  "shortWindow": 2,
+  "longWindow": 4,
+  "minConfidence": 0.01,
+  "reportPath": "reports/config-sample.json",
+  "reportCsvDir": "reports/config-sample-csv"
+}

@@ -22,8 +22,24 @@ MarketFeed/EventFeed
 - `strategies/`: reads context and emits buy, sell, or hold signals.
 - `risk/`: approves, rejects, or modifies order intent before execution.
 - `execution/`: implements paper or live order placement.
-- `portfolio/`: records orders, fills, positions, and account snapshots.
+- `portfolio/`: records orders, fills, positions, fee-aware cost basis, and account snapshots.
 - `eval/`: reuses strategy and risk concepts for backtests and replay.
+
+## Evaluation Outputs
+
+Backtest reports include summary returns, drawdown, final cash, position value, gross exposure,
+realized/unrealized PnL, orders, fills, risk rejections, an equity curve, data-quality warnings,
+aggregate closed-trade metrics, and per-trade detail rows. Export paths are intentionally local
+files for now; choosing durable storage remains a separate persistence decision.
+
+Data-quality warnings use a configured market calendar. The current built-in profiles are
+`weekday` and `crypto-24-7`; exchange-specific holidays are supplied explicitly as dates.
+
+## Portfolio Policy
+
+The current account model is long-only and cash-only. It uses average-cost accounting, rejects
+negative-cash or short-position fills, and intentionally does not model borrow costs, margin,
+FIFO/LIFO tax lots, or wash-sale rules.
 
 ## Current Non-Decisions
 
