@@ -1,12 +1,13 @@
 import type { Candle } from "../core/types.js";
 import { loadCandlesFromFixture } from "../fixtures/candle-fixture-loader.js";
 import { SimpleBacktester } from "./simple-backtester.js";
-import { MovingAverageCrossoverStrategy } from "../strategies/moving-average-crossover-strategy.js";
+import { createDefaultStrategyRegistry } from "../strategies/registry.js";
 import {
   backtestHelpText,
   loadBacktestCliConfig,
   summarizeBacktestReport,
   writeBacktestCsvReports,
+  writeBacktestComparisonReport,
   writeBacktestReport
 } from "./backtest-cli.js";
 
@@ -31,43 +32,54 @@ const candles = cli.fixturePath
       timeframe: "1d"
     })
   : makeDemoCandles();
+const filteredCandles = filterCandlesByDate(candles, cli.from, cli.to);
 const symbol = cli.symbol ?? candles.at(0)?.symbol ?? "DEMO/USD";
+const strategyIds = cli.compareStrategyIds.length > 0 ? cli.compareStrategyIds : [cli.strategyId];
+const registry = createDefaultStrategyRegistry();
+const reports = [];
 
-// This strategy is intentionally simple. It is here to exercise the pipeline, not to claim
-// that moving-average crossover is a profitable trading approach.
-const strategy = new MovingAverageCrossoverStrategy({
-  shortWindow: cli.shortWindow,
-  longWindow: cli.longWindow,
-  minConfidence: cli.minConfidence
-});
-const backtester = new SimpleBacktester({ strategy });
+for (const strategyId of strategyIds) {
+  const strategy = registry.create(strategyId, cli.strategyParams);
+  const backtester = new SimpleBacktester({ strategy });
 
-// Fees and slippage can dominate backtest results, so the CLI keeps these assumptions explicit.
-const request = {
-  strategyId: strategy.id,
-  symbols: [symbol],
-  candles,
-  startingEquity: cli.startingEquity,
-  feeRate: cli.feeRate,
-  slippageBps: cli.slippageBps,
-  spreadBps: cli.spreadBps,
-  fillRatio: cli.fillRatio,
-  maxDataGapDays: cli.maxDataGapDays,
-  marketCalendar: cli.marketCalendar,
-  marketHolidays: cli.marketHolidays,
-  ...(cli.skipFillEvery !== undefined ? { skipFillEvery: cli.skipFillEvery } : {})
-};
-const report = await backtester.run(request);
+  // Fees and slippage can dominate backtest results, so the CLI keeps these assumptions explicit.
+  const request = {
+    strategyId: strategy.id,
+    symbols: [symbol],
+    candles: filteredCandles,
+    startingEquity: cli.startingEquity,
+    feeRate: cli.feeRate,
+    slippageBps: cli.slippageBps,
+    spreadBps: cli.spreadBps,
+    fillRatio: cli.fillRatio,
+    maxDataGapDays: cli.maxDataGapDays,
+    marketCalendar: cli.marketCalendar,
+    marketHolidays: cli.marketHolidays,
+    ...(cli.skipFillEvery !== undefined ? { skipFillEvery: cli.skipFillEvery } : {})
+  };
+  reports.push(await backtester.run(request));
+}
 
 if (cli.reportPath) {
-  await writeBacktestReport(report, cli.reportPath);
+  if (reports.length === 1) {
+    await writeBacktestReport(reports[0]!, cli.reportPath);
+  } else {
+    await writeBacktestComparisonReport(reports, cli.reportPath);
+  }
 }
 
 if (cli.reportCsvDir) {
-  await writeBacktestCsvReports(report, cli.reportCsvDir);
+  for (const report of reports) {
+    const directory =
+      reports.length === 1 ? cli.reportCsvDir : `${cli.reportCsvDir}/${report.strategyId}`;
+    await writeBacktestCsvReports(report, directory);
+  }
 }
 
-console.log(JSON.stringify(summarizeBacktestReport(report), null, 2));
+const summaries = reports.map(summarizeBacktestReport);
+console.log(
+  JSON.stringify(reports.length === 1 ? summaries[0] : { comparison: summaries }, null, 2)
+);
 
 function makeDemoCandles(): Candle[] {
   // Small upward-trending fixture used as a smoke test when no external file is supplied.
@@ -90,5 +102,15 @@ function makeDemoCandles(): Candle[] {
       close,
       volume: 1_000 + index * 10
     };
+  });
+}
+
+function filterCandlesByDate(candles: Candle[], from?: string, to?: string): Candle[] {
+  const fromTime = from ? new Date(`${from}T00:00:00.000Z`).getTime() : Number.NEGATIVE_INFINITY;
+  const toTime = to ? new Date(`${to}T23:59:59.999Z`).getTime() : Number.POSITIVE_INFINITY;
+
+  return candles.filter((candle) => {
+    const closeTime = candle.closeTime.getTime();
+    return closeTime >= fromTime && closeTime <= toTime;
   });
 }

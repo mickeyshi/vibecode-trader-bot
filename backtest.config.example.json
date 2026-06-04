@@ -1,6 +1,24 @@
 {
   "fixturePath": "test-fixtures/stooq-1mcay-sample.txt",
   "symbol": "1MCAY.B",
+  "strategyId": "moving-average-crossover",
+  "strategyParams": {
+    "shortWindow": 2,
+    "longWindow": 4,
+    "minConfidence": 0.01
+  },
+  "compareStrategyIds": [
+    "moving-average-crossover",
+    "buy-and-hold",
+    "momentum",
+    "mean-reversion",
+    "rsi-threshold",
+    "volatility-breakout",
+    "trend-filtered-momentum",
+    "scored-context"
+  ],
+  "from": "1994-03-15",
+  "to": "1994-03-23",
   "startingEquity": 25000,
   "feeRate": 0.0005,
   "slippageBps": 2,
@@ -10,9 +28,6 @@
   "maxDataGapDays": 4,
   "marketCalendar": "weekday",
   "marketHolidays": [],
-  "shortWindow": 2,
-  "longWindow": 4,
-  "minConfidence": 0.01,
   "reportPath": "reports/config-sample.json",
   "reportCsvDir": "reports/config-sample-csv"
 }

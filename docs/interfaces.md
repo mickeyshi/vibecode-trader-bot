@@ -33,6 +33,14 @@ intents through paper execution, updates portfolio state, and records equity/ris
 outputs. `SimpleBacktester` wraps that replay result into return, drawdown, trade, and report
 metrics.
 
+## Strategy Lifecycle
+
+Strategies are created through a registry rather than hardcoded in the runner. The default
+registry currently includes `moving-average-crossover`, `buy-and-hold`, `momentum`,
+`mean-reversion`, `rsi-threshold`, `volatility-breakout`, `trend-filtered-momentum`, and
+`scored-context`. Backtest config can select one strategy with params, compare several registered
+strategies, and filter candles by date range for short-term versus long-term evaluation.
+
 ## Evaluation Outputs
 
 Backtest reports include summary returns, drawdown, final cash, position value, gross exposure,

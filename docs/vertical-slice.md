@@ -32,6 +32,8 @@ Fixture candles
 - JSON config files are validated for known keys and expected value types before running.
 - Data-quality gap checks use a configured market calendar: `weekday` for exchange-style weekday sessions or `crypto-24-7` for continuously traded daily markets. Exchange holidays can be supplied as explicit `YYYY-MM-DD` dates.
 - `SimpleBacktester` delegates candle replay to `CandleReplayEngine`, so historical replay uses the same market-data, feature, strategy, risk, execution, and portfolio path that future paper mode should reuse.
+- Strategies are created through a registry. The CLI can select one strategy, override strategy params, compare multiple registered strategies, and slice candles with `--from`/`--to`.
+- Registered strategies include moving-average crossover, buy-and-hold, momentum, mean reversion, RSI threshold, volatility breakout, trend-filtered momentum, and a scored context strategy.
 
 ## Intentional Limitations
 
@@ -47,6 +49,11 @@ npm run backtest -- --fixture test-fixtures/stooq-1mcay-sample.txt --symbol 1MCA
 npm run backtest -- --starting-equity 25000 --fee-rate 0.0005 --slippage-bps 2
 npm run backtest -- --spread-bps 5 --fill-ratio 0.75 --skip-fill-every 4
 npm run backtest -- --config backtest.config.example.json
+npm run backtest -- --strategy buy-and-hold
+npm run backtest -- --compare-strategies moving-average-crossover,buy-and-hold
+npm run backtest -- --compare-strategies moving-average-crossover,buy-and-hold,momentum,mean-reversion,rsi-threshold,volatility-breakout,trend-filtered-momentum,scored-context
+npm run backtest -- --strategy-param shortWindow=2 --strategy-param longWindow=8
+npm run backtest -- --from 1994-03-15 --to 1994-03-23
 npm run backtest -- --market-calendar crypto-24-7
 npm run backtest -- --market-holidays 2026-01-01,2026-12-25
 npm run backtest -- --report reports/backtest.json
@@ -64,5 +71,7 @@ Track the fuller roadmap in `docs/spec-gaps.md`.
 - Add schema-backed config validation if the flat JSON config grows more complex.
 - Add maintained exchange holiday datasets only if manually configured holidays become too brittle.
 - Add richer per-trade analytics if the current closed-trade export is not enough for review.
+- Add strategy metadata and ranking if side-by-side summaries are not enough for selection.
+- Add allocation-aware intent mapping if buy-and-hold should target portfolio weight instead of the current fixed-notional order size.
 - Adapt `CandleReplayEngine` for paper-mode feeds when the first live data provider is selected.
 - Add config validation before adding external feeds or exchange integrations.

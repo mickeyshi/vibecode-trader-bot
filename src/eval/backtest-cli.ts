@@ -7,6 +7,11 @@ export interface BacktestCliConfig {
   fixturePath?: string;
   configPath?: string;
   symbol?: string;
+  strategyId: string;
+  strategyParams: Record<string, unknown>;
+  compareStrategyIds: string[];
+  from?: string;
+  to?: string;
   startingEquity: number;
   feeRate: number;
   slippageBps: number;
@@ -27,6 +32,9 @@ export interface BacktestCliConfig {
 export type BacktestCliConfigFile = Partial<Omit<BacktestCliConfig, "help" | "configPath">>;
 
 const defaults: BacktestCliConfig = {
+  strategyId: "moving-average-crossover",
+  strategyParams: {},
+  compareStrategyIds: [],
   startingEquity: 10_000,
   feeRate: 0.001,
   slippageBps: 5,
@@ -89,6 +97,29 @@ export function parseBacktestCliArgs(
         config.symbol = requireValue(rawName, value);
         if (inlineValue === undefined) index += 1;
         break;
+      case "strategy":
+        config.strategyId = requireValue(rawName, value);
+        if (inlineValue === undefined) index += 1;
+        break;
+      case "compare-strategies":
+        config.compareStrategyIds = stringListValue(rawName, value);
+        if (inlineValue === undefined) index += 1;
+        break;
+      case "strategy-param":
+        config.strategyParams = {
+          ...config.strategyParams,
+          ...strategyParamValue(rawName, value)
+        };
+        if (inlineValue === undefined) index += 1;
+        break;
+      case "from":
+        config.from = dateValue(rawName, value);
+        if (inlineValue === undefined) index += 1;
+        break;
+      case "to":
+        config.to = dateValue(rawName, value);
+        if (inlineValue === undefined) index += 1;
+        break;
       case "starting-equity":
         config.startingEquity = positiveNumber(rawName, value);
         if (inlineValue === undefined) index += 1;
@@ -127,14 +158,17 @@ export function parseBacktestCliArgs(
         break;
       case "short-window":
         config.shortWindow = positiveInteger(rawName, value);
+        config.strategyParams = { ...config.strategyParams, shortWindow: config.shortWindow };
         if (inlineValue === undefined) index += 1;
         break;
       case "long-window":
         config.longWindow = positiveInteger(rawName, value);
+        config.strategyParams = { ...config.strategyParams, longWindow: config.longWindow };
         if (inlineValue === undefined) index += 1;
         break;
       case "min-confidence":
         config.minConfidence = nonNegativeNumber(rawName, value);
+        config.strategyParams = { ...config.strategyParams, minConfidence: config.minConfidence };
         if (inlineValue === undefined) index += 1;
         break;
       case "report":
@@ -204,6 +238,14 @@ export async function writeBacktestReport(
 ): Promise<void> {
   await mkdir(dirname(reportPath), { recursive: true });
   await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, "utf8");
+}
+
+export async function writeBacktestComparisonReport(
+  reports: BacktestReport[],
+  reportPath: string
+): Promise<void> {
+  await mkdir(dirname(reportPath), { recursive: true });
+  await writeFile(reportPath, `${JSON.stringify({ reports }, null, 2)}\n`, "utf8");
 }
 
 export async function writeBacktestCsvReports(
@@ -307,6 +349,11 @@ export function backtestHelpText(): string {
     "  --config <path>           JSON config file; explicit CLI flags override file values",
     "  --fixture <path>          CSV, JSON, or Stooq .txt fixture path",
     "  --symbol <symbol>         Symbol to evaluate",
+    "  --strategy <id>           Strategy id, default moving-average-crossover",
+    "  --compare-strategies <ids> Comma-separated strategy ids to run and compare",
+    "  --strategy-param k=v      Strategy parameter; repeatable, numbers are parsed",
+    "  --from <YYYY-MM-DD>       Include candles closing on or after this date",
+    "  --to <YYYY-MM-DD>         Include candles closing on or before this date",
     "  --starting-equity <n>     Starting account equity, default 10000",
     "  --fee-rate <n>            Fee rate as a decimal, default 0.001",
     "  --slippage-bps <n>        Slippage in basis points, default 5",
@@ -360,6 +407,11 @@ function validateBacktestCliConfigFile(
   const allowedKeys = new Set([
     "fixturePath",
     "symbol",
+    "strategyId",
+    "strategyParams",
+    "compareStrategyIds",
+    "from",
+    "to",
     "startingEquity",
     "feeRate",
     "slippageBps",
@@ -385,9 +437,18 @@ function validateBacktestCliConfigFile(
     switch (key) {
       case "fixturePath":
       case "symbol":
+      case "strategyId":
+      case "from":
+      case "to":
       case "reportPath":
       case "reportCsvDir":
         config[key] = configString(key, value, configPath);
+        break;
+      case "strategyParams":
+        config[key] = configRecord(key, value, configPath);
+        break;
+      case "compareStrategyIds":
+        config[key] = configStringArray(key, value, configPath);
         break;
       case "startingEquity":
       case "maxDataGapDays":
@@ -471,6 +532,34 @@ function positiveInteger(name: string, value: string | undefined): number {
   return parsed;
 }
 
+function stringListValue(name: string, value: string | undefined): string[] {
+  const values = requireValue(name, value)
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (values.length === 0) {
+    throw new Error(`--${name} requires at least one value.`);
+  }
+
+  return values;
+}
+
+function strategyParamValue(name: string, value: string | undefined): Record<string, unknown> {
+  const raw = requireValue(name, value);
+  const separator = raw.indexOf("=");
+  if (separator <= 0) {
+    throw new Error(`--${name} must use key=value format.`);
+  }
+
+  const key = raw.slice(0, separator);
+  const rawValue = raw.slice(separator + 1);
+  return { [key]: parsePrimitive(rawValue) };
+}
+
+function dateValue(name: string, value: string | undefined): string {
+  return validateDateString(requireValue(name, value), `--${name}`);
+}
+
 function marketCalendarValue(name: string, value: string | undefined): MarketCalendarId {
   const parsed = requireValue(name, value);
   if (!isMarketCalendarId(parsed)) {
@@ -491,6 +580,29 @@ function holidayListValue(name: string, value: string | undefined): string[] {
 function configString(key: string, value: unknown, configPath: string): string {
   if (typeof value !== "string" || value.length === 0) {
     throw new Error(`Backtest config ${key} must be a non-empty string in ${configPath}.`);
+  }
+
+  return key === "from" || key === "to"
+    ? validateDateString(value, `Backtest config ${key}`)
+    : value;
+}
+
+function configRecord(key: string, value: unknown, configPath: string): Record<string, unknown> {
+  if (!value || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error(`Backtest config ${key} must be an object in ${configPath}.`);
+  }
+
+  return value as Record<string, unknown>;
+}
+
+function configStringArray(key: string, value: unknown, configPath: string): string[] {
+  if (
+    !Array.isArray(value) ||
+    value.some((item) => typeof item !== "string" || item.length === 0)
+  ) {
+    throw new Error(
+      `Backtest config ${key} must be an array of non-empty strings in ${configPath}.`
+    );
   }
 
   return value;
@@ -554,6 +666,26 @@ function configPositiveInteger(key: string, value: unknown, configPath: string):
   }
 
   return numberValue;
+}
+
+function parsePrimitive(value: string): unknown {
+  if (value === "true") return true;
+  if (value === "false") return false;
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) && value.trim() !== "" ? numberValue : value;
+}
+
+function validateDateString(value: string, label: string): string {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    throw new Error(`${label} must use YYYY-MM-DD format.`);
+  }
+
+  const date = new Date(`${value}T00:00:00.000Z`);
+  if (Number.isNaN(date.getTime()) || date.toISOString().slice(0, 10) !== value) {
+    throw new Error(`${label} is not a valid date.`);
+  }
+
+  return value;
 }
 
 function toCsv(rows: Record<string, unknown>[], headers: string[]): string {

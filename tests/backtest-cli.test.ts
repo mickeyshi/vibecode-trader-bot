@@ -14,6 +14,16 @@ describe("backtest CLI helpers", () => {
       "test-fixtures/stooq-1mcay-sample.txt",
       "--symbol",
       "1MCAY.B",
+      "--strategy",
+      "buy-and-hold",
+      "--compare-strategies",
+      "moving-average-crossover,buy-and-hold",
+      "--strategy-param",
+      "shortWindow=2",
+      "--from",
+      "2020-01-01",
+      "--to",
+      "2020-12-31",
       "--starting-equity",
       "25000",
       "--fee-rate=0.0005",
@@ -43,6 +53,11 @@ describe("backtest CLI helpers", () => {
 
     expect(config.fixturePath).toBe("test-fixtures/stooq-1mcay-sample.txt");
     expect(config.symbol).toBe("1MCAY.B");
+    expect(config.strategyId).toBe("buy-and-hold");
+    expect(config.compareStrategyIds).toEqual(["moving-average-crossover", "buy-and-hold"]);
+    expect(config.strategyParams).toMatchObject({ shortWindow: 4, longWindow: 9 });
+    expect(config.from).toBe("2020-01-01");
+    expect(config.to).toBe("2020-12-31");
     expect(config.startingEquity).toBe(25_000);
     expect(config.feeRate).toBe(0.0005);
     expect(config.slippageBps).toBe(2);
@@ -72,6 +87,14 @@ describe("backtest CLI helpers", () => {
       JSON.stringify({
         fixturePath: "test-fixtures/stooq-1mcay-sample.txt",
         symbol: "1MCAY.B",
+        strategyId: "moving-average-crossover",
+        strategyParams: {
+          shortWindow: 2,
+          longWindow: 8
+        },
+        compareStrategyIds: ["moving-average-crossover", "buy-and-hold"],
+        from: "1994-01-01",
+        to: "1994-12-31",
         startingEquity: 25_000,
         marketCalendar: "weekday",
         marketHolidays: ["2026-01-01"],
@@ -91,6 +114,11 @@ describe("backtest CLI helpers", () => {
     expect(config.configPath).toBe("reports/test-backtest-config.json");
     expect(config.fixturePath).toBe("test-fixtures/stooq-1mcay-sample.txt");
     expect(config.symbol).toBe("1MCAY.B");
+    expect(config.strategyId).toBe("moving-average-crossover");
+    expect(config.strategyParams).toMatchObject({ shortWindow: 2, longWindow: 8 });
+    expect(config.compareStrategyIds).toEqual(["moving-average-crossover", "buy-and-hold"]);
+    expect(config.from).toBe("1994-01-01");
+    expect(config.to).toBe("1994-12-31");
     expect(config.startingEquity).toBe(30_000);
     expect(config.marketCalendar).toBe("weekday");
     expect(config.marketHolidays).toEqual(["2026-01-01"]);

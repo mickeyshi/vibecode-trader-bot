@@ -22,16 +22,19 @@ This list tracks known gaps between the current framework slice and a trading bo
 - Backtest reports include per-trade detail rows and CSV export for closed trades.
 - Data-quality checks support market calendars: weekday sessions, crypto 24/7 sessions, and configured exchange holiday dates.
 - Replay mode is represented by `CandleReplayEngine`, which runs historical candles through the same market-data, feature, strategy, risk, execution, and portfolio path used by backtests.
+- Strategies are selected through a default registry, with CLI/config support for strategy params, comparison runs, and date-window slices.
+- Off-the-shelf registered strategies now cover moving-average crossover, buy-and-hold, momentum, mean reversion, RSI threshold, volatility breakout, trend-filtered momentum, and scored context signals.
 
 ## Near-Term Gaps
 
 - **CLI configuration:** move to a dedicated schema library if the file format grows beyond the current flat JSON shape.
 - **Reporting:** add richer per-trade analytics only if the current closed-trade rows are not enough for review.
+- **Allocation mapping:** add portfolio-weight-aware intent mapping only if fixed-notional sizing becomes too limiting for baseline comparisons.
 
 ## Medium-Term Gaps
 
 - **Data validation:** add runtime schemas for fixture rows, exchange payloads, config, and environment variables.
-- **Strategy lifecycle:** define how strategies are registered, parameterized, enabled, disabled, and compared.
+- **Strategy lifecycle:** add metadata and result ranking if registry-based comparison needs more than strategy id, params, and summary metrics.
 - **Event/news inputs:** wire event feeds into both feature generation and risk controls.
 - **Persistence:** decide when to move beyond in-memory stores and document the database tradeoff.
 - **Observability:** add structured logs, metrics, decision traces, and alert hooks.
