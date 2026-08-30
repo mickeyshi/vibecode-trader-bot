@@ -62,6 +62,7 @@ export interface OrderIntent {
   limitPrice?: number;
   reason: string;
   strategyId: string;
+  idempotencyKey?: string;
 }
 
 export interface Order {
@@ -70,6 +71,8 @@ export interface Order {
   status: "new" | "accepted" | "partially-filled" | "filled" | "rejected" | "cancelled";
   createdAt: Date;
   updatedAt: Date;
+  filledQuantity?: number;
+  averageFillPrice?: number;
 }
 
 export interface Fill {

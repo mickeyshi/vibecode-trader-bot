@@ -26,6 +26,23 @@ describe("StrategyRegistry", () => {
     ]);
   });
 
+  it("exposes metadata for registered strategies", () => {
+    const registry = createDefaultStrategyRegistry();
+
+    expect(registry.metadata("mean-reversion")).toMatchObject({
+      id: "mean-reversion",
+      name: "Mean Reversion",
+      category: "mean-reversion",
+      defaultParams: {
+        lookbackWindow: 10,
+        entryZScore: 1.5,
+        exitZScore: 0
+      },
+      tags: ["z-score", "oversold", "long-only"]
+    });
+    expect(registry.metadataList()).toHaveLength(registry.ids().length);
+  });
+
   it("rejects unknown strategies", () => {
     const registry = createDefaultStrategyRegistry();
 

@@ -1,6 +1,8 @@
 import type { OrderIntent } from "../core/types.js";
 import type { RiskContext, RiskDecision, RiskEngine } from "./interfaces.js";
 
+const MONEY_EPSILON = 1e-8;
+
 export interface BasicRiskConfig {
   maxOrderNotional: number;
   maxPositionNotional: number;
@@ -36,7 +38,7 @@ export class BasicRiskEngine implements RiskEngine {
     const orderNotional = intent.quantity * executionPrice;
     const estimatedFee = orderNotional * (this.config.estimatedFeeRate ?? 0);
     const estimatedCashCost = orderNotional + estimatedFee;
-    if (orderNotional > this.config.maxOrderNotional) {
+    if (exceeds(orderNotional, this.config.maxOrderNotional)) {
       return reject(
         `Order notional ${orderNotional.toFixed(2)} exceeds max order notional.`,
         appliedRules
@@ -51,7 +53,7 @@ export class BasicRiskEngine implements RiskEngine {
     const nextQuantity = (currentPosition?.quantity ?? 0) + signedQuantity;
 
     appliedRules.push("cash-and-short-guard");
-    if (intent.side === "buy" && estimatedCashCost > context.buyingPower) {
+    if (intent.side === "buy" && exceeds(estimatedCashCost, context.buyingPower)) {
       return reject(
         `Estimated buy cost ${estimatedCashCost.toFixed(2)} exceeds buying power ${context.buyingPower.toFixed(2)}.`,
         appliedRules
@@ -63,7 +65,7 @@ export class BasicRiskEngine implements RiskEngine {
     }
 
     const nextPositionNotional = Math.abs(nextQuantity * price);
-    if (nextPositionNotional > this.config.maxPositionNotional) {
+    if (exceeds(nextPositionNotional, this.config.maxPositionNotional)) {
       return reject(
         `Projected position notional ${nextPositionNotional.toFixed(2)} exceeds max position notional.`,
         appliedRules
@@ -82,7 +84,7 @@ export class BasicRiskEngine implements RiskEngine {
       const projectedGrossExposure = currentGrossExposure + nextPositionNotional;
       const maxGrossExposure = context.accountEquity * this.config.maxGrossLeverage;
 
-      if (projectedGrossExposure > maxGrossExposure) {
+      if (exceeds(projectedGrossExposure, maxGrossExposure)) {
         return reject(
           `Projected gross exposure ${projectedGrossExposure.toFixed(2)} exceeds max leverage exposure ${maxGrossExposure.toFixed(2)}.`,
           appliedRules
@@ -111,6 +113,10 @@ export class BasicRiskEngine implements RiskEngine {
       appliedRules
     };
   }
+}
+
+function exceeds(value: number, limit: number): boolean {
+  return value > limit + MONEY_EPSILON;
 }
 
 function reject(reason: string, appliedRules: string[]): RiskDecision {

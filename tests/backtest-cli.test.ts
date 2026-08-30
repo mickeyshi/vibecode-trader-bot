@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   loadBacktestCliConfig,
   parseBacktestCliArgs,
+  summarizeBacktestComparison,
   summarizeBacktestReport
 } from "../src/eval/backtest-cli.js";
 import type { BacktestReport } from "../src/eval/interfaces.js";
@@ -215,6 +216,47 @@ describe("backtest CLI helpers", () => {
         grossLoss: 40,
         profitFactor: 2.5
       },
+      observabilityMetrics: [
+        {
+          timestamp: new Date("2026-01-02T00:00:00.000Z"),
+          name: "candles.processed",
+          value: 2,
+          unit: "count",
+          tags: { strategyId: "test-strategy", symbol: "DEMO/USD" }
+        }
+      ],
+      decisionTraces: [
+        {
+          id: "trace-1",
+          timestamp: new Date("2026-01-02T00:00:00.000Z"),
+          symbol: "DEMO/USD",
+          strategyId: "test-strategy",
+          signal: {
+            action: "hold",
+            confidence: 0,
+            reason: "test hold"
+          },
+          fillCount: 0,
+          equity: 10_123.456
+        }
+      ],
+      logs: [
+        {
+          timestamp: new Date("2026-01-02T00:00:00.000Z"),
+          level: "info",
+          event: "test.event",
+          message: "test log"
+        }
+      ],
+      alerts: [
+        {
+          id: "alert-1",
+          timestamp: new Date("2026-01-02T00:00:00.000Z"),
+          severity: "warning",
+          type: "test-alert",
+          message: "test alert"
+        }
+      ],
       dataQualityWarnings: [
         {
           type: "missing-data-gap",
@@ -250,7 +292,126 @@ describe("backtest CLI helpers", () => {
       grossProfit: 100,
       grossLoss: 40,
       profitFactor: 2.5,
+      logCount: 1,
+      metricCount: 1,
+      decisionTraceCount: 1,
+      alertCount: 1,
       dataQualityWarningCount: 1
     });
   });
+
+  it("ranks comparison reports and includes strategy metadata", () => {
+    const first = makeReport({
+      strategyId: "steady",
+      endingEquity: 10_500,
+      totalReturnPct: 5,
+      maxDrawdownPct: 1,
+      profitFactor: 2,
+      closedTradeCount: 2
+    });
+    const second = makeReport({
+      strategyId: "choppy",
+      endingEquity: 10_700,
+      totalReturnPct: 7,
+      maxDrawdownPct: 6,
+      profitFactor: 1.2,
+      closedTradeCount: 4,
+      dataQualityWarningCount: 1
+    });
+
+    const summary = summarizeBacktestComparison(
+      [second, first],
+      [
+        {
+          id: "steady",
+          name: "Steady",
+          description: "Lower drawdown test strategy.",
+          category: "baseline",
+          defaultParams: {},
+          tags: ["test"]
+        }
+      ]
+    );
+
+    expect(summary.rankings[0]).toMatchObject({
+      rank: 1,
+      strategyId: "steady",
+      score: 6.5
+    });
+    expect(summary.rankings[1]).toMatchObject({
+      rank: 2,
+      strategyId: "choppy",
+      score: 2.45,
+      dataQualityWarningCount: 1
+    });
+    expect(summary.strategyMetadata[0]).toMatchObject({ id: "steady", name: "Steady" });
+    expect(summary.comparison).toHaveLength(2);
+  });
 });
+
+function makeReport(options: {
+  strategyId: string;
+  endingEquity: number;
+  totalReturnPct: number;
+  maxDrawdownPct: number;
+  profitFactor: number | null;
+  closedTradeCount: number;
+  dataQualityWarningCount?: number;
+}): BacktestReport {
+  const dataQualityWarnings = Array.from(
+    { length: options.dataQualityWarningCount ?? 0 },
+    (_, index) => ({
+      type: "missing-data-gap" as const,
+      symbol: "DEMO/USD",
+      calendar: "weekday" as const,
+      previousTimestamp: new Date("2026-01-01T00:00:00.000Z"),
+      currentTimestamp: new Date("2026-01-02T00:00:00.000Z"),
+      gapDays: index + 1,
+      missingSessionCount: index + 1,
+      message: "test gap"
+    })
+  );
+
+  return {
+    strategyId: options.strategyId,
+    start: new Date("2026-01-01T00:00:00.000Z"),
+    end: new Date("2026-01-02T00:00:00.000Z"),
+    endingEquity: options.endingEquity,
+    totalReturnPct: options.totalReturnPct,
+    maxDrawdownPct: options.maxDrawdownPct,
+    orders: [],
+    fills: [],
+    trades: [],
+    riskRejections: [],
+    equityCurve: [
+      { timestamp: new Date("2026-01-01T00:00:00.000Z"), equity: 10_000 },
+      { timestamp: new Date("2026-01-02T00:00:00.000Z"), equity: options.endingEquity }
+    ],
+    metrics: {
+      startingEquity: 10_000,
+      endingEquity: options.endingEquity,
+      endingCash: options.endingEquity,
+      finalPositionValue: 0,
+      finalGrossExposure: 0,
+      finalRealizedPnl: options.endingEquity - 10_000,
+      finalUnrealizedPnl: 0,
+      netProfit: options.endingEquity - 10_000,
+      totalFees: 0,
+      filledOrderCount: 0,
+      skippedOrderCount: 0,
+      closedTradeCount: options.closedTradeCount,
+      winningTradeCount: options.closedTradeCount,
+      losingTradeCount: 0,
+      winRatePct: options.closedTradeCount > 0 ? 100 : 0,
+      grossProfit: Math.max(options.endingEquity - 10_000, 0),
+      grossLoss: 0,
+      profitFactor: options.profitFactor
+    },
+    observabilityMetrics: [],
+    decisionTraces: [],
+    logs: [],
+    alerts: [],
+    dataQualityWarnings,
+    assumptions: ["test assumption"]
+  };
+}

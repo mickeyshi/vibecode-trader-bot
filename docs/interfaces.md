@@ -25,6 +25,13 @@ MarketFeed/EventFeed
 - `portfolio/`: records orders, fills, positions, fee-aware cost basis, and account snapshots.
 - `eval/`: reuses strategy and risk concepts for backtests and candle replay.
 
+## Market Data Ingest
+
+The first live-ingest provider is Alpaca IEX equities data. The initial adapter uses the read-only
+latest-bars REST endpoint, requests the `iex` feed explicitly, and normalizes provider payloads into
+internal `Candle` values. This is market-data plumbing only; it does not enable order placement or
+live trading.
+
 ## Replay Boundary
 
 `CandleReplayEngine` is the shared historical replay loop. It writes candles into the market
@@ -39,7 +46,9 @@ Strategies are created through a registry rather than hardcoded in the runner. T
 registry currently includes `moving-average-crossover`, `buy-and-hold`, `momentum`,
 `mean-reversion`, `rsi-threshold`, `volatility-breakout`, `trend-filtered-momentum`, and
 `scored-context`. Backtest config can select one strategy with params, compare several registered
-strategies, and filter candles by date range for short-term versus long-term evaluation.
+strategies, and filter candles by date range for short-term versus long-term evaluation. Registry
+metadata captures each strategy's display name, category, default params, and tags so comparison
+reports can be read without cross-referencing source files.
 
 ## Evaluation Outputs
 
@@ -47,6 +56,18 @@ Backtest reports include summary returns, drawdown, final cash, position value, 
 realized/unrealized PnL, orders, fills, risk rejections, an equity curve, data-quality warnings,
 aggregate closed-trade metrics, and per-trade detail rows. Export paths are intentionally local
 files for now; choosing durable storage remains a separate persistence decision.
+
+Comparison runs add a ranked summary using a transparent score based on return, drawdown, capped
+profit factor, closed-trade presence, and data-quality warnings. The ranking is a review aid for
+baseline comparisons, not evidence of live-trading profitability.
+
+## Observability
+
+Backtest reports include structured logs, point-in-time metrics, decision traces, and alert events.
+`CandleReplayEngine` collects these records through an in-memory sink by default and can fan them
+out to an optional `ObservabilitySink` hook for future paper-mode or hosted monitoring adapters.
+Decision traces record the signal, mapped intent, risk decision, order result, fill count, and
+equity for each evaluated candle.
 
 Data-quality warnings use a configured market calendar. The current built-in profiles are
 `weekday` and `crypto-24-7`; exchange-specific holidays are supplied explicitly as dates.
@@ -59,4 +80,7 @@ FIFO/LIFO tax lots, or wash-sale rules.
 
 ## Current Non-Decisions
 
-The first pass does not choose a broker, database, scheduler, queue, frontend, or deployment pipeline. Those should be decided separately with cost, reliability, and operational tradeoffs documented in `docs/decisions/`.
+The project now uses Alpaca for paper execution, SQLite for single-host recovery state, React/Vite
+for the local dashboard, and GitHub Actions for credential-free validation. A scheduler, hosted
+runtime, queue, and live-capital deployment pipeline remain separate decisions requiring documented
+cost, reliability, and operational tradeoffs.

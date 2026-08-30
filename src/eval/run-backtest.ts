@@ -5,11 +5,13 @@ import { createDefaultStrategyRegistry } from "../strategies/registry.js";
 import {
   backtestHelpText,
   loadBacktestCliConfig,
+  summarizeBacktestComparison,
   summarizeBacktestReport,
   writeBacktestCsvReports,
   writeBacktestComparisonReport,
   writeBacktestReport
 } from "./backtest-cli.js";
+import type { StrategyMetadata } from "../strategies/registry.js";
 
 // CLI usage:
 //   npm run backtest
@@ -37,8 +39,10 @@ const symbol = cli.symbol ?? candles.at(0)?.symbol ?? "DEMO/USD";
 const strategyIds = cli.compareStrategyIds.length > 0 ? cli.compareStrategyIds : [cli.strategyId];
 const registry = createDefaultStrategyRegistry();
 const reports = [];
+const strategyMetadata: StrategyMetadata[] = [];
 
 for (const strategyId of strategyIds) {
+  strategyMetadata.push(registry.metadata(strategyId));
   const strategy = registry.create(strategyId, cli.strategyParams);
   const backtester = new SimpleBacktester({ strategy });
 
@@ -64,7 +68,7 @@ if (cli.reportPath) {
   if (reports.length === 1) {
     await writeBacktestReport(reports[0]!, cli.reportPath);
   } else {
-    await writeBacktestComparisonReport(reports, cli.reportPath);
+    await writeBacktestComparisonReport(reports, cli.reportPath, strategyMetadata);
   }
 }
 
@@ -78,7 +82,11 @@ if (cli.reportCsvDir) {
 
 const summaries = reports.map(summarizeBacktestReport);
 console.log(
-  JSON.stringify(reports.length === 1 ? summaries[0] : { comparison: summaries }, null, 2)
+  JSON.stringify(
+    reports.length === 1 ? summaries[0] : summarizeBacktestComparison(reports, strategyMetadata),
+    null,
+    2
+  )
 );
 
 function makeDemoCandles(): Candle[] {

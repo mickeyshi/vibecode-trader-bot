@@ -1,4 +1,10 @@
 import type { Candle, Fill, Order, OrderIntent } from "../core/types.js";
+import type {
+  AlertEvent,
+  DecisionTrace,
+  ObservabilityLog,
+  ObservabilityMetric
+} from "../observability/interfaces.js";
 
 export type MarketCalendarId = "weekday" | "crypto-24-7";
 
@@ -90,6 +96,10 @@ export interface BacktestReport {
   riskRejections: BacktestRiskRejection[];
   equityCurve: BacktestEquityPoint[];
   metrics: BacktestMetrics;
+  observabilityMetrics: ObservabilityMetric[];
+  decisionTraces: DecisionTrace[];
+  logs: ObservabilityLog[];
+  alerts: AlertEvent[];
   dataQualityWarnings: BacktestDataQualityWarning[];
   assumptions: string[];
 }

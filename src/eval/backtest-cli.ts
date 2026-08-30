@@ -2,6 +2,8 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import type { BacktestReport, MarketCalendarId } from "./interfaces.js";
 import { isMarketCalendarId, validateHolidayDate } from "./market-calendars.js";
+import type { StrategyMetadata } from "../strategies/registry.js";
+import { parseStrategyParam } from "../strategies/strategy-params.js";
 
 export interface BacktestCliConfig {
   fixturePath?: string;
@@ -30,6 +32,25 @@ export interface BacktestCliConfig {
 }
 
 export type BacktestCliConfigFile = Partial<Omit<BacktestCliConfig, "help" | "configPath">>;
+
+export interface BacktestComparisonRanking {
+  rank: number;
+  strategyId: string;
+  score: number;
+  totalReturnPct: number;
+  maxDrawdownPct: number;
+  profitFactor: number | null;
+  closedTradeCount: number;
+  dataQualityWarningCount: number;
+  reason: string;
+}
+
+export interface BacktestComparisonSummary {
+  rankingMethod: string;
+  rankings: BacktestComparisonRanking[];
+  strategyMetadata: StrategyMetadata[];
+  comparison: Record<string, unknown>[];
+}
 
 const defaults: BacktestCliConfig = {
   strategyId: "moving-average-crossover",
@@ -108,7 +129,7 @@ export function parseBacktestCliArgs(
       case "strategy-param":
         config.strategyParams = {
           ...config.strategyParams,
-          ...strategyParamValue(rawName, value)
+          ...parseStrategyParam(requireValue(rawName, value), `--${rawName}`)
         };
         if (inlineValue === undefined) index += 1;
         break;
@@ -227,9 +248,68 @@ export function summarizeBacktestReport(report: BacktestReport): Record<string, 
     grossLoss: Number(report.metrics.grossLoss.toFixed(2)),
     profitFactor:
       report.metrics.profitFactor === null ? null : Number(report.metrics.profitFactor.toFixed(2)),
+    logCount: report.logs.length,
+    metricCount: report.observabilityMetrics.length,
+    decisionTraceCount: report.decisionTraces.length,
+    alertCount: report.alerts.length,
     dataQualityWarningCount: report.dataQualityWarnings.length,
     assumptions: report.assumptions
   };
+}
+
+export function summarizeBacktestComparison(
+  reports: BacktestReport[],
+  strategyMetadata: StrategyMetadata[] = []
+): BacktestComparisonSummary {
+  return {
+    rankingMethod:
+      "score = totalReturnPct - maxDrawdownPct + cappedProfitFactor + closedTradeBonus - dataQualityPenalty",
+    rankings: rankBacktestReports(reports),
+    strategyMetadata,
+    comparison: reports.map(summarizeBacktestReport)
+  };
+}
+
+export function rankBacktestReports(reports: BacktestReport[]): BacktestComparisonRanking[] {
+  return reports
+    .map((report) => {
+      const profitFactorBonus =
+        report.metrics.profitFactor === null ? 0 : Math.min(report.metrics.profitFactor, 5);
+      const closedTradeBonus = report.metrics.closedTradeCount > 0 ? 0.5 : 0;
+      const dataQualityPenalty = report.dataQualityWarnings.length * 0.25;
+      const score =
+        report.totalReturnPct -
+        report.maxDrawdownPct +
+        profitFactorBonus +
+        closedTradeBonus -
+        dataQualityPenalty;
+
+      return {
+        rank: 0,
+        strategyId: report.strategyId,
+        score: roundNumber(score),
+        totalReturnPct: roundNumber(report.totalReturnPct),
+        maxDrawdownPct: roundNumber(report.maxDrawdownPct),
+        profitFactor:
+          report.metrics.profitFactor === null ? null : roundNumber(report.metrics.profitFactor),
+        closedTradeCount: report.metrics.closedTradeCount,
+        dataQualityWarningCount: report.dataQualityWarnings.length,
+        reason: rankingReason(report, profitFactorBonus, closedTradeBonus, dataQualityPenalty)
+      };
+    })
+    .sort((left, right) => {
+      if (right.score !== left.score) return right.score - left.score;
+      const leftReport = reports.find((report) => report.strategyId === left.strategyId)!;
+      const rightReport = reports.find((report) => report.strategyId === right.strategyId)!;
+      if (rightReport.endingEquity !== leftReport.endingEquity) {
+        return rightReport.endingEquity - leftReport.endingEquity;
+      }
+      if (left.maxDrawdownPct !== right.maxDrawdownPct) {
+        return left.maxDrawdownPct - right.maxDrawdownPct;
+      }
+      return left.strategyId.localeCompare(right.strategyId);
+    })
+    .map((ranking, index) => ({ ...ranking, rank: index + 1 }));
 }
 
 export async function writeBacktestReport(
@@ -242,10 +322,22 @@ export async function writeBacktestReport(
 
 export async function writeBacktestComparisonReport(
   reports: BacktestReport[],
-  reportPath: string
+  reportPath: string,
+  strategyMetadata: StrategyMetadata[] = []
 ): Promise<void> {
   await mkdir(dirname(reportPath), { recursive: true });
-  await writeFile(reportPath, `${JSON.stringify({ reports }, null, 2)}\n`, "utf8");
+  await writeFile(
+    reportPath,
+    `${JSON.stringify(
+      {
+        ...summarizeBacktestComparison(reports, strategyMetadata),
+        reports
+      },
+      null,
+      2
+    )}\n`,
+    "utf8"
+  );
 }
 
 export async function writeBacktestCsvReports(
@@ -333,6 +425,41 @@ export async function writeBacktestCsvReports(
         "message"
       ]),
       "utf8"
+    ),
+    writeFile(
+      `${reportDir}/logs.csv`,
+      toCsv(logRows(report), ["timestamp", "level", "event", "message", "context"]),
+      "utf8"
+    ),
+    writeFile(
+      `${reportDir}/metrics.csv`,
+      toCsv(metricRows(report), ["timestamp", "name", "value", "unit", "tags"]),
+      "utf8"
+    ),
+    writeFile(
+      `${reportDir}/decision-traces.csv`,
+      toCsv(decisionTraceRows(report), [
+        "id",
+        "timestamp",
+        "symbol",
+        "strategyId",
+        "signalAction",
+        "signalConfidence",
+        "signalReason",
+        "hasIntent",
+        "riskApproved",
+        "riskReason",
+        "orderId",
+        "orderStatus",
+        "fillCount",
+        "equity"
+      ]),
+      "utf8"
+    ),
+    writeFile(
+      `${reportDir}/alerts.csv`,
+      toCsv(alertRows(report), ["id", "timestamp", "severity", "type", "message", "context"]),
+      "utf8"
     )
   ]);
 }
@@ -367,7 +494,7 @@ export function backtestHelpText(): string {
     "  --long-window <n>         Moving-average long window, default 5",
     "  --min-confidence <n>      Signal confidence threshold, default 0.01",
     "  --report <path>           Write full JSON report including orders, fills, rejections, equity curve",
-    "  --report-csv-dir <path>   Write orders, fills, trades, rejections, equity, and data-quality CSV files",
+    "  --report-csv-dir <path>   Write report CSV files, including observability traces and alerts",
     "  --help                    Show this help"
   ].join("\n");
 }
@@ -544,18 +671,6 @@ function stringListValue(name: string, value: string | undefined): string[] {
   return values;
 }
 
-function strategyParamValue(name: string, value: string | undefined): Record<string, unknown> {
-  const raw = requireValue(name, value);
-  const separator = raw.indexOf("=");
-  if (separator <= 0) {
-    throw new Error(`--${name} must use key=value format.`);
-  }
-
-  const key = raw.slice(0, separator);
-  const rawValue = raw.slice(separator + 1);
-  return { [key]: parsePrimitive(rawValue) };
-}
-
 function dateValue(name: string, value: string | undefined): string {
   return validateDateString(requireValue(name, value), `--${name}`);
 }
@@ -668,13 +783,6 @@ function configPositiveInteger(key: string, value: unknown, configPath: string):
   return numberValue;
 }
 
-function parsePrimitive(value: string): unknown {
-  if (value === "true") return true;
-  if (value === "false") return false;
-  const numberValue = Number(value);
-  return Number.isFinite(numberValue) && value.trim() !== "" ? numberValue : value;
-}
-
 function validateDateString(value: string, label: string): string {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) {
     throw new Error(`${label} must use YYYY-MM-DD format.`);
@@ -686,6 +794,25 @@ function validateDateString(value: string, label: string): string {
   }
 
   return value;
+}
+
+function rankingReason(
+  report: BacktestReport,
+  profitFactorBonus: number,
+  closedTradeBonus: number,
+  dataQualityPenalty: number
+): string {
+  return [
+    `return ${roundNumber(report.totalReturnPct)}%`,
+    `drawdown ${roundNumber(report.maxDrawdownPct)}%`,
+    `profit factor bonus ${roundNumber(profitFactorBonus)}`,
+    `closed trade bonus ${roundNumber(closedTradeBonus)}`,
+    `data-quality penalty ${roundNumber(dataQualityPenalty)}`
+  ].join("; ");
+}
+
+function roundNumber(value: number): number {
+  return Number(value.toFixed(2));
 }
 
 function toCsv(rows: Record<string, unknown>[], headers: string[]): string {
@@ -776,5 +903,55 @@ function dataQualityRows(report: BacktestReport): Record<string, unknown>[] {
     gapDays: warning.gapDays,
     missingSessionCount: warning.missingSessionCount,
     message: warning.message
+  }));
+}
+
+function logRows(report: BacktestReport): Record<string, unknown>[] {
+  return report.logs.map((log) => ({
+    timestamp: log.timestamp,
+    level: log.level,
+    event: log.event,
+    message: log.message,
+    context: JSON.stringify(log.context ?? {})
+  }));
+}
+
+function metricRows(report: BacktestReport): Record<string, unknown>[] {
+  return report.observabilityMetrics.map((metric) => ({
+    timestamp: metric.timestamp,
+    name: metric.name,
+    value: metric.value,
+    unit: metric.unit,
+    tags: JSON.stringify(metric.tags ?? {})
+  }));
+}
+
+function decisionTraceRows(report: BacktestReport): Record<string, unknown>[] {
+  return report.decisionTraces.map((trace) => ({
+    id: trace.id,
+    timestamp: trace.timestamp,
+    symbol: trace.symbol,
+    strategyId: trace.strategyId,
+    signalAction: trace.signal.action,
+    signalConfidence: trace.signal.confidence,
+    signalReason: trace.signal.reason,
+    hasIntent: trace.intent !== undefined,
+    riskApproved: trace.riskDecision?.approved,
+    riskReason: trace.riskDecision?.reason,
+    orderId: trace.order?.id,
+    orderStatus: trace.order?.status,
+    fillCount: trace.fillCount,
+    equity: trace.equity
+  }));
+}
+
+function alertRows(report: BacktestReport): Record<string, unknown>[] {
+  return report.alerts.map((alert) => ({
+    id: alert.id,
+    timestamp: alert.timestamp,
+    severity: alert.severity,
+    type: alert.type,
+    message: alert.message,
+    context: JSON.stringify(alert.context ?? {})
   }));
 }

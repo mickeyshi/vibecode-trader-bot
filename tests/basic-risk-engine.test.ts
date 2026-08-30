@@ -2,6 +2,30 @@ import { describe, expect, it } from "vitest";
 import { BasicRiskEngine } from "../src/risk/basic-risk-engine.js";
 
 describe("BasicRiskEngine", () => {
+  it("allows order notionals at the configured cap despite floating-point rounding", async () => {
+    const engine = new BasicRiskEngine({
+      maxOrderNotional: 25,
+      maxPositionNotional: 100,
+      maxDailyLossPct: 0.05,
+      blockHighImpactEventsAtOrAbove: 10
+    });
+
+    const decision = await engine.evaluate(
+      {
+        symbol: "AAPL",
+        side: "buy",
+        type: "market",
+        quantity: 25 / 309.72,
+        limitPrice: 309.72,
+        reason: "cap boundary test",
+        strategyId: "test-strategy"
+      },
+      riskContext()
+    );
+
+    expect(decision.approved).toBe(true);
+  });
+
   it("rejects oversized order notional", async () => {
     const engine = new BasicRiskEngine({
       maxOrderNotional: 1_000,
@@ -30,6 +54,31 @@ describe("BasicRiskEngine", () => {
         buyingPower: 10_000,
         now: new Date()
       }
+    );
+
+    expect(decision.approved).toBe(false);
+    expect(decision.reason).toContain("exceeds max order notional");
+  });
+
+  it("still rejects order notionals that are genuinely above the cap", async () => {
+    const engine = new BasicRiskEngine({
+      maxOrderNotional: 25,
+      maxPositionNotional: 100,
+      maxDailyLossPct: 0.05,
+      blockHighImpactEventsAtOrAbove: 10
+    });
+
+    const decision = await engine.evaluate(
+      {
+        symbol: "AAPL",
+        side: "buy",
+        type: "market",
+        quantity: 25.01 / 309.72,
+        limitPrice: 309.72,
+        reason: "real cap breach",
+        strategyId: "test-strategy"
+      },
+      riskContext()
     );
 
     expect(decision.approved).toBe(false);
@@ -182,3 +231,16 @@ describe("BasicRiskEngine", () => {
     expect(decision.reason).toContain("short position");
   });
 });
+
+function riskContext() {
+  return {
+    mode: "paper" as const,
+    openPositions: [],
+    recentEvents: [],
+    dailyRealizedPnl: 0,
+    accountEquity: 10_000,
+    cash: 10_000,
+    buyingPower: 10_000,
+    now: new Date()
+  };
+}

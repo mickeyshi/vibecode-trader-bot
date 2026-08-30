@@ -1,4 +1,5 @@
 import type { Fill } from "../core/types.js";
+import type { ObservabilitySink } from "../observability/interfaces.js";
 import type { RiskEngine } from "../risk/interfaces.js";
 import type { SignalToIntentMapper, Strategy } from "../strategies/interfaces.js";
 import { CandleReplayEngine } from "./candle-replay-engine.js";
@@ -14,6 +15,7 @@ export interface SimpleBacktesterConfig {
   strategy: Strategy;
   mapper?: SignalToIntentMapper;
   riskEngine?: RiskEngine;
+  observability?: ObservabilitySink;
 }
 
 export class SimpleBacktester implements Backtester {
@@ -82,6 +84,10 @@ export class SimpleBacktester implements Backtester {
         skippedOrderCount: orders.filter((order) => order.status === "cancelled").length,
         ...tradeMetrics
       },
+      observabilityMetrics: replay.observabilityMetrics,
+      decisionTraces: replay.decisionTraces,
+      logs: replay.logs,
+      alerts: replay.alerts,
       dataQualityWarnings: replay.dataQualityWarnings,
       assumptions: replay.assumptions
     };

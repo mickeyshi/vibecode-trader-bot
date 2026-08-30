@@ -6,13 +6,28 @@
   "description": "Small TypeScript trading bot framework with paper trading and backtesting first.",
   "scripts": {
     "build": "tsc -p tsconfig.build.json",
+    "dashboard:build": "vite build --config vite.dashboard.config.ts",
+    "dashboard:dev": "vite --config vite.dashboard.config.ts",
+    "dashboard:preview": "vite preview --config vite.dashboard.config.ts",
     "typecheck": "tsc --noEmit",
+    "typecheck:dashboard": "tsc -p tsconfig.dashboard.json --noEmit",
     "test": "vitest run --passWithNoTests",
     "test:watch": "vitest",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "backtest": "tsx src/eval/run-backtest.ts"
+    "backtest": "tsx src/eval/run-backtest.ts",
+    "validate:advanced-strategies": "tsx src/eval/run-advanced-strategy-validation.ts",
+    "break-even:audit": "tsx src/dashboard/run-break-even-audit.ts",
+    "ingest:alpaca-iex": "tsx src/feeds/run-alpaca-iex-ingest.ts",
+    "paper-trading:check": "tsx src/execution/run-alpaca-paper-connectivity-check.ts",
+    "live-trading:flatten": "tsx src/execution/run-flatten-positions.ts",
+    "live-trading:cycle": "tsx src/execution/run-live-trading-cycle.ts",
+    "paper-trading:coordinator": "tsx src/execution/run-paper-trading-coordinator.ts",
+    "live-ops:snapshot": "tsx src/dashboard/run-live-ops-snapshot.ts",
+    "operations:monitor": "tsx src/observability/run-operations-monitor.ts",
+    "test:alpaca:integration": "vitest run tests/alpaca-paper.integration.test.ts",
+    "paper-soak:audit": "tsx src/eval/run-paper-soak-audit.ts"
   },
   "engines": {
     "node": ">=22"
@@ -20,11 +35,20 @@
   "devDependencies": {
     "@eslint/js": "^9.0.0",
     "@types/node": "^22.0.0",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.2",
     "eslint": "^9.0.0",
     "prettier": "^3.0.0",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0",
     "typescript-eslint": "^8.0.0",
+    "vite": "^8.0.16",
     "vitest": "^4.1.8"
+  },
+  "dependencies": {
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7",
+    "recharts": "^3.8.1"
   }
 }

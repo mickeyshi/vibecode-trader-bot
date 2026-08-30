@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { StrategyContext } from "../src/data/interfaces.js";
 import { SimpleBacktester } from "../src/eval/simple-backtester.js";
+import { InMemoryObservabilitySink } from "../src/observability/in-memory-observability-sink.js";
 import type { SignalToIntentMapper, StrategySignal } from "../src/strategies/interfaces.js";
 import { MovingAverageCrossoverStrategy } from "../src/strategies/moving-average-crossover-strategy.js";
 import { makeCandles } from "./fixtures.js";
@@ -31,6 +32,10 @@ describe("SimpleBacktester", () => {
     expect(report.metrics.totalFees).toBeGreaterThan(0);
     expect(report.metrics.endingCash).toBeGreaterThanOrEqual(0);
     expect(report.metrics.finalGrossExposure).toBeGreaterThanOrEqual(0);
+    expect(report.logs.map((log) => log.event)).toContain("backtest.replay.started");
+    expect(report.observabilityMetrics.map((metric) => metric.name)).toContain("candles.processed");
+    expect(report.decisionTraces.length).toBeGreaterThan(0);
+    expect(report.alerts.length).toBeGreaterThanOrEqual(report.riskRejections.length);
     expect(report.dataQualityWarnings).toHaveLength(0);
     expect(report.endingEquity).toBeGreaterThan(0);
     expect(report.assumptions).toContain("Orders fill immediately at the latest candle close.");
@@ -70,6 +75,7 @@ describe("SimpleBacktester", () => {
     });
 
     expect(report.dataQualityWarnings).toHaveLength(1);
+    expect(report.alerts.some((alert) => alert.type === "data-quality-gap")).toBe(true);
     expect(report.dataQualityWarnings[0]?.type).toBe("missing-data-gap");
     expect(report.dataQualityWarnings[0]?.calendar).toBe("weekday");
     expect(report.dataQualityWarnings[0]?.missingSessionCount).toBeGreaterThan(0);
@@ -232,5 +238,30 @@ describe("SimpleBacktester", () => {
     expect(report.metrics.winRatePct).toBe(100);
     expect(report.metrics.grossProfit).toBe(10);
     expect(report.metrics.profitFactor).toBeNull();
+  });
+
+  it("sends observability events to configured hooks", async () => {
+    const strategy = new MovingAverageCrossoverStrategy({
+      shortWindow: 2,
+      longWindow: 4,
+      minConfidence: 0.01
+    });
+    const sink = new InMemoryObservabilitySink();
+    const backtester = new SimpleBacktester({ strategy, observability: sink });
+
+    const report = await backtester.run({
+      strategyId: strategy.id,
+      symbols: ["DEMO/USD"],
+      candles: makeCandles([100, 99, 100, 102, 104]),
+      startingEquity: 10_000,
+      feeRate: 0.001,
+      slippageBps: 5
+    });
+    const snapshot = sink.snapshot();
+
+    expect(snapshot.logs.length).toBe(report.logs.length);
+    expect(snapshot.metrics.length).toBe(report.observabilityMetrics.length);
+    expect(snapshot.decisionTraces.length).toBe(report.decisionTraces.length);
+    expect(snapshot.alerts.length).toBe(report.alerts.length);
   });
 });
