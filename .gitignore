@@ -8,3 +8,9 @@ coverage/
 .env.*
 !.env.example
 *.log
+
+# Local license keys and generated dependency-license reports.
+*.lic
+*.license
+license-report.*
+third-party-licenses/
