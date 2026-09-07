@@ -505,6 +505,47 @@ describe("paper trading coordinator", () => {
     expect(broker.seen.map((intent) => intent.symbol)).toEqual(["AAPL"]);
   });
 
+  it("flags timed-out open orders for operator reconciliation without cancelling them", async () => {
+    const broker = new InMemoryPaperBroker();
+    broker.openOrders = [pendingOrder("SPY")];
+    const result = await runPaperTradingCoordinator({
+      symbols: ["SPY"],
+      iterations: 1,
+      intervalMs: 0,
+      strategy: new BuyAndHoldStrategy({ targetAllocationPct: 1 }),
+      intentMapper: new FixedNotionalIntentMapper({ notionalPerTrade: 25 }),
+      riskEngineFactory: () => riskEngine(),
+      broker,
+      marketData: new StaticMarketData({ SPY: 500 }),
+      snapshotConfig: snapshotConfig(),
+      maxPendingOrderAgeMs: 30_000,
+      now: new Date("2026-06-19T14:31:00.000Z")
+    });
+
+    expect(result.cycles[0]?.skippedReason).toContain("exceeding the 30000ms timeout");
+    expect(result.executions).toEqual([]);
+  });
+
+  it("blocks new exposure when account exposure and broker positions drift", async () => {
+    const broker = new DriftedPaperBroker();
+    const result = await runPaperTradingCoordinator({
+      symbols: ["SPY"],
+      iterations: 1,
+      intervalMs: 0,
+      strategy: new BuyAndHoldStrategy({ targetAllocationPct: 1 }),
+      intentMapper: new FixedNotionalIntentMapper({ notionalPerTrade: 25 }),
+      riskEngineFactory: () => riskEngine(),
+      broker,
+      marketData: new StaticMarketData({ SPY: 500 }),
+      snapshotConfig: snapshotConfig(),
+      maxPositionDriftNotional: 5,
+      now: new Date("2026-06-19T14:31:00.000Z")
+    });
+
+    expect(result.cycles[0]?.skippedReason).toContain("Broker position drift 25.00");
+    expect(result.executions).toEqual([]);
+  });
+
   it("stops submitting orders after the run-level execution cap is reached", async () => {
     const broker = new InMemoryPaperBroker();
     const result = await runPaperTradingCoordinator({
@@ -1288,6 +1329,12 @@ class CalendarPaperBroker extends InMemoryPaperBroker {
   async getMarketCalendar(startDate: string) {
     this.calendarDates.push(startDate);
     return [{ date: startDate, openTime: "09:30", closeTime: "13:00" }];
+  }
+}
+
+class DriftedPaperBroker extends InMemoryPaperBroker {
+  async getAccountSnapshot(): Promise<AccountSnapshot> {
+    return { ...(await super.getAccountSnapshot()), grossExposure: 25, positionValue: 25 };
   }
 }
 

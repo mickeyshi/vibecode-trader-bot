@@ -39,6 +39,10 @@ describe("paper trading coordinator CLI", () => {
       "2",
       "--max-notional-per-run",
       "100",
+      "--max-pending-order-age-ms",
+      "300000",
+      "--max-position-drift-notional",
+      "2.5",
       "--dry-run",
       "--market-session",
       "regular",
@@ -79,6 +83,8 @@ describe("paper trading coordinator CLI", () => {
       maxHistoryCandles: 120,
       maxExecutionsPerRun: 2,
       maxNotionalPerRun: 100,
+      maxPendingOrderAgeMs: 300_000,
+      maxPositionDriftNotional: 2.5,
       dryRun: true,
       marketSessionMode: "regular",
       marketSessionTimeZone: "America/New_York",
@@ -108,6 +114,8 @@ describe("paper trading coordinator CLI", () => {
       maxHistoryCandles: 100,
       maxExecutionsPerRun: 5,
       maxNotionalPerRun: 250,
+      maxPendingOrderAgeMs: 900_000,
+      maxPositionDriftNotional: 5,
       dryRun: false,
       marketSessionMode: "regular"
     });

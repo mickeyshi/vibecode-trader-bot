@@ -1,6 +1,7 @@
 import type { Candle } from "../core/types.js";
 import type { AlpacaIexMarketDataConfig } from "./alpaca-iex-config.js";
 import { requestWithAlpacaRetry, type AlpacaRetryConfig } from "./alpaca-retry.js";
+import { sanitizedExternalErrorDetail } from "../observability/external-error-sanitizer.js";
 
 export type AlpacaFetch = (
   input: string,
@@ -71,7 +72,7 @@ export class AlpacaIexMarketDataClient {
 
     if (!response.ok) {
       throw new Error(
-        `Alpaca latest bars request failed with ${response.status} ${response.statusText}: ${body}`
+        `Alpaca latest bars request failed with ${response.status} ${response.statusText}: ${sanitizedExternalErrorDetail(body)}`
       );
     }
 
@@ -123,7 +124,7 @@ export class AlpacaIexMarketDataClient {
         );
         if (!response.ok) {
           throw new Error(
-            `Alpaca historical bars request failed with ${response.status} ${response.statusText}: ${body}`
+            `Alpaca historical bars request failed with ${response.status} ${response.statusText}: ${sanitizedExternalErrorDetail(body)}`
           );
         }
         return parseHistoricalBarsResponse(JSON.parse(body) as unknown, [symbol]);

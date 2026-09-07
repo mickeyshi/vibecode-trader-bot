@@ -4,6 +4,7 @@ import type { AccountSnapshot } from "../portfolio/interfaces.js";
 import type { AlpacaTradingConfig } from "./alpaca-trading-config.js";
 import type { ExecutionResult, OrderExecutor } from "./interfaces.js";
 import type { MarketCalendarDay } from "./market-session.js";
+import { sanitizedExternalErrorDetail } from "../observability/external-error-sanitizer.js";
 
 export type AlpacaTradingFetch = (
   input: string,
@@ -179,7 +180,7 @@ export class AlpacaOrderExecutor implements OrderExecutor {
     if (response.status === 404) return undefined;
     if (!response.ok) {
       throw new Error(
-        `Alpaca trading request failed with ${response.status} ${response.statusText}: ${body}`
+        `Alpaca trading request failed with ${response.status} ${response.statusText}: ${sanitizedExternalErrorDetail(body)}`
       );
     }
     return toOrder(JSON.parse(body) as AlpacaOrderResponse);
@@ -193,7 +194,7 @@ export class AlpacaOrderExecutor implements OrderExecutor {
 
     if (!response.ok) {
       throw new Error(
-        `Alpaca trading request failed with ${response.status} ${response.statusText}: ${body}`
+        `Alpaca trading request failed with ${response.status} ${response.statusText}: ${sanitizedExternalErrorDetail(body)}`
       );
     }
 

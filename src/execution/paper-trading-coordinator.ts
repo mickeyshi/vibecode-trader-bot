@@ -62,6 +62,8 @@ export interface PaperTradingCoordinatorRequest {
   maxHistoryCandles?: number;
   maxExecutionsPerRun?: number;
   maxNotionalPerRun?: number;
+  maxPendingOrderAgeMs?: number;
+  maxPositionDriftNotional?: number;
   dryRun?: boolean;
   marketSession?: MarketSessionConfig;
   now?: Date;
@@ -124,6 +126,14 @@ export async function runPaperTradingCoordinator(
   const maxNotionalPerRun = request.maxNotionalPerRun ?? Number.POSITIVE_INFINITY;
   if (maxNotionalPerRun < 0 || Number.isNaN(maxNotionalPerRun)) {
     throw new Error("Paper trading coordinator maxNotionalPerRun must be non-negative.");
+  }
+  const maxPendingOrderAgeMs = request.maxPendingOrderAgeMs ?? 15 * 60_000;
+  if (maxPendingOrderAgeMs < 0 || !Number.isFinite(maxPendingOrderAgeMs)) {
+    throw new Error("Paper trading coordinator maxPendingOrderAgeMs must be non-negative.");
+  }
+  const maxPositionDriftNotional = request.maxPositionDriftNotional ?? 5;
+  if (maxPositionDriftNotional < 0 || !Number.isFinite(maxPositionDriftNotional)) {
+    throw new Error("Paper trading coordinator maxPositionDriftNotional must be non-negative.");
   }
 
   const cycles: LiveTradingCycleResult[] = [];
@@ -222,6 +232,14 @@ export async function runPaperTradingCoordinator(
         (order) => order.symbol === symbol
       );
       const staleReason = staleCandleReason(symbol, symbolCandles, maxCandleAgeMs, now);
+      const positionDrift = positionDriftReason(
+        accountSnapshot,
+        positions,
+        maxPositionDriftNotional
+      );
+      const pendingOrderReason = pendingOrder
+        ? openOrderBlockReason(pendingOrder, now, maxPendingOrderAgeMs)
+        : undefined;
 
       const journalBlock = journalBlocks.get(symbol);
       if (
@@ -229,6 +247,7 @@ export async function runPaperTradingCoordinator(
         persistedPendingOrder ||
         terminalReconciliation ||
         journalBlock ||
+        positionDrift ||
         staleReason
       ) {
         cycles.push(
@@ -236,15 +255,17 @@ export async function runPaperTradingCoordinator(
             symbol,
             strategyId: request.strategy.id,
             accountSnapshot,
-            reason: pendingOrder
-              ? `Open ${pendingOrder.status} order ${pendingOrder.id} already exists for ${symbol}.`
+            reason: pendingOrderReason
+              ? pendingOrderReason
               : persistedPendingOrder
                 ? persistedPendingOrderReason(persistedPendingOrder)
                 : terminalReconciliation
                   ? `Persisted order ${terminalReconciliation.id} is ${terminalReconciliation.status}; waiting until the next run for broker positions to converge for ${symbol}.`
                   : journalBlock
                     ? journalBlock
-                    : staleReason!,
+                    : positionDrift
+                      ? positionDrift
+                      : staleReason!,
             now
           })
         );
@@ -605,6 +626,28 @@ function paperCycleStatus(cycle: LiveTradingCycleResult): LiveOpsPaperCycleRow["
   if (cycle.riskDecision && !cycle.riskDecision.approved) return "rejected";
   if (cycle.skippedReason) return cycle.intent ? "rejected" : "skipped";
   return "held";
+}
+
+function openOrderBlockReason(order: Order, now: Date, maxAgeMs: number): string {
+  const ageMs = Math.max(0, now.getTime() - order.updatedAt.getTime());
+  if (ageMs > maxAgeMs) {
+    return `Open ${order.status} order ${order.id} for ${order.intent.symbol} is ${ageMs}ms old, exceeding the ${maxAgeMs}ms timeout; operator reconciliation is required.`;
+  }
+  return `Open ${order.status} order ${order.id} already exists for ${order.intent.symbol}.`;
+}
+
+function positionDriftReason(
+  account: AccountSnapshot,
+  positions: Position[],
+  maxDriftNotional: number
+): string | undefined {
+  const positionExposure = positions.reduce(
+    (sum, position) => sum + Math.abs(position.quantity * position.markPrice),
+    0
+  );
+  const drift = Math.abs(account.grossExposure - positionExposure);
+  if (drift <= maxDriftNotional + 1e-8) return undefined;
+  return `Broker position drift ${drift.toFixed(2)} exceeds the configured ${maxDriftNotional.toFixed(2)} notional tolerance; new exposure is blocked.`;
 }
 
 async function reconcileSubmissionJournal(

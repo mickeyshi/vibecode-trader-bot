@@ -75,6 +75,7 @@ The paper path supports:
 - regular-session and stale-candle gates;
 - dry-run strategy and risk evaluation with no order submission;
 - duplicate exposure and open-order checks;
+- pending-order age escalation and broker/account position-drift gates;
 - transactional SQLite pending-order, rolling-candle, and pre-submit journal state;
 - an expiring single-host coordinator lease;
 - restart reconciliation of terminal, pending, missing, failed-lookup, and partially filled orders;
@@ -83,15 +84,17 @@ The paper path supports:
 - flattening through the same safety gateway;
 - dashboard snapshots and local history records.
 
-Paper runs are manually started and bounded. There is no supported unattended, continuous,
-production scheduler.
+Paper runs are manually started and bounded. Windows Task Scheduler templates are available for a
+hard-coded dry run and read-only heartbeat monitor, but there is no supported unattended order-
+submitting production scheduler.
 
 ### Dashboard and Audit
 
 The local Vite/React dashboard has Operations and Backtests views. Operations loads
 `reports/live-ops-snapshot.json` when available and shows account state, break-even status,
 readiness gates, controls, risk limits, paper-run summaries, paper decisions, positions, and orders.
-It falls back to bundled sample data when no snapshot is available.
+It falls back to bundled sample data when no snapshot is available. Operations refreshes every 30
+seconds and labels sample, current, and stale data explicitly.
 
 The Backtests view currently uses bundled sample report data. Generated backtest report selection or
 upload is not implemented. The dashboard is read-only and has no order-entry controls.
@@ -144,7 +147,7 @@ verified directly for the current session.
 | Reconciliation and durable state             | Implemented locally | SQLite stores validated coordinator state and a pre-submit idempotency journal; unknown outcomes reconcile by client ID and quarantine the symbol. Multi-host persistence remains out of scope. |
 | Single-runner protection                     | Implemented locally | An expiring SQLite lease rejects concurrent coordinators on one host. Multi-host leader election remains out of scope.                                                                          |
 | Authoritative calendars and data supervision | Implemented locally | Alpaca calendar validation, historical bootstrap, bounded network/HTTP retries, and a provider circuit breaker are active. Independent calendar verification and streaming remain.              |
-| External monitoring                          | In progress         | Atomic heartbeats, stale-heartbeat checks, and HTTPS webhook delivery exist; an external scheduler/process manager must invoke the monitor.                                                     |
+| External monitoring                          | Ready to configure  | Atomic heartbeats, stale-heartbeat checks, HTTPS webhook delivery, and Windows dry-run/read-only supervisor templates exist; the operator must configure the receiver and register the tasks.   |
 | Multi-day paper soak                         | Ready to run        | A deterministic acceptance audit evaluates recorded days, executions, rejections, stale data, and blocked snapshots; real elapsed paper days remain required.                                   |
 | Tiny-capital live acceptance plan            | Pending approval    | Live-capital execution remains unsupported.                                                                                                                                                     |
 
@@ -159,9 +162,9 @@ verified directly for the current session.
   against Alpaca's read-only calendar endpoint and fail closed when the lookup fails. Independent
   calendar verification and corporate-action handling remain live-capital blockers.
 - **Order lifecycle:** transactional state, conservative persisted-order reconciliation, a
-  pre-submit idempotency journal, and client-ID recovery are implemented. Add cancel/replace, order
-  timeouts, richer market rejection details, fills arriving between polls, and authoritative
-  position-drift reconciliation.
+  pre-submit idempotency journal, client-ID recovery, pending-order timeout escalation, and an
+  account-versus-position drift gate are implemented. Add reviewed cancel/replace behavior, fills
+  arriving between polls, and lot-level authoritative reconciliation.
 - **Continuous supervision:** local single-runner leases, atomic heartbeats, a monitor command, and
   HTTPS webhook alerts exist. A separately selected external process manager and scheduler remain.
 - **Durable state:** SQLite transactionally stores recovery state and pre-submit journal entries for
@@ -189,8 +192,7 @@ verified directly for the current session.
 ### Dashboard and Operations Gaps
 
 - Backtest report selection/loading is not wired into the UI.
-- Operations data is fetched once at page load rather than refreshed or streamed.
-- The UI does not clearly distinguish fallback sample data from a current account snapshot.
+- Operations data refreshes by polling rather than streaming.
 - No authentication, authorization, multi-user controls, or hosted access model.
 - No interactive order controls by design; any future control must require a separate safety review.
 - No database-backed run search, retention policy, reconciliation timeline, or downloadable incident
@@ -201,8 +203,9 @@ verified directly for the current session.
 - Environment and coordinator CLI parsing use hand-written validation rather than a shared runtime
   schema.
 - There is no production secret-manager integration or key-rotation procedure.
-- There is no sanitized logging policy enforced in code for all broker error payloads.
-- There is no startup configuration fingerprint or operator-facing confirmation of all effective
+- Broker and market-data HTTP errors pass through a conservative external-error sanitizer; a formal
+  policy and broader structured-field allowlist remain.
+- Coordinator output records a SHA-256 fingerprint plus the non-secret effective configuration and
   risk limits.
 - GitHub Actions enforces tests, backend and dashboard types, lint, formatting, and builds on Linux
   and Windows without loading credentials or contacting Alpaca. Branch protection must still be
@@ -227,7 +230,7 @@ documented, and explicitly approved:
 
 ## Recommended Development Order
 
-1. Select and configure the external process supervisor and independent heartbeat-monitor schedule.
+1. Review and register the provided dry-run supervisor and independent heartbeat-monitor schedule.
 2. Configure HTTPS alert delivery and document incident ownership and response procedures.
 3. Run bounded paper sessions across multiple market days until explicit soak criteria pass.
 4. Add independent calendar verification, position-drift reconciliation, and order timeouts.
@@ -248,6 +251,8 @@ documented, and explicitly approved:
 - `README.md`: setup, checks, paper preflight, dashboard, and backtest quick start.
 - `AGENTS.md`: engineering, safety, testing, and handoff practices.
 - `docs/paper-trading-validation.md`: detailed Alpaca paper validation procedure.
+- `docs/paper-operations-runbook.md`: supervision, recovery, escalation, and soak operations.
+- `docs/paper-soak-plan.md`: initial symbols, caps, stages, and acceptance evidence.
 - `docs/interfaces.md`: architectural boundaries and normalized interfaces.
 - `docs/vertical-slice.md`: historical replay implementation notes.
 - `docs/spec-gaps.md`: legacy detailed roadmap; new gaps should also be reflected here or migrated

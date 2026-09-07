@@ -19,6 +19,8 @@ export interface PaperCoordinatorCli {
   maxHistoryCandles: number;
   maxExecutionsPerRun: number;
   maxNotionalPerRun: number;
+  maxPendingOrderAgeMs: number;
+  maxPositionDriftNotional: number;
   dryRun: boolean;
   marketSessionMode: "regular" | "off";
   marketSessionTimeZone: string;
@@ -52,6 +54,8 @@ export function parsePaperCoordinatorArgs(args: string[]): PaperCoordinatorCli {
     maxHistoryCandles: integerOption(args, "--max-history-candles", 100),
     maxExecutionsPerRun: nonNegativeIntegerOption(args, "--max-executions-per-run", 5),
     maxNotionalPerRun: nonNegativeNumberOption(args, "--max-notional-per-run", 250),
+    maxPendingOrderAgeMs: nonNegativeNumberOption(args, "--max-pending-order-age-ms", 15 * 60_000),
+    maxPositionDriftNotional: nonNegativeNumberOption(args, "--max-position-drift-notional", 5),
     dryRun: booleanFlag(args, "--dry-run"),
     marketSessionMode: marketSessionModeOption(args, "--market-session", "regular"),
     marketSessionTimeZone: readOption(args, "--market-session-time-zone") ?? "America/New_York",

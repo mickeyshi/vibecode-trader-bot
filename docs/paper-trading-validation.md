@@ -150,12 +150,34 @@ To use another SQLite state file:
 npm run paper-trading:coordinator -- --symbols SPY,AAPL --state reports/paper-state.sqlite --out reports/live-ops-snapshot.json --history-dir reports/live-ops-history
 ```
 
+Open broker orders older than 15 minutes require operator reconciliation by default, and account
+gross exposure must agree with marked broker positions within `$5`. Tune these fail-closed gates
+with `--max-pending-order-age-ms` and `--max-position-drift-notional`; do not widen them merely to
+make a blocked run proceed. Each run prints the non-secret effective configuration and its SHA-256
+fingerprint so an operator can compare runs without exposing credentials.
+
 Check the coordinator heartbeat from an independent scheduler or terminal. Set
 `ALERT_WEBHOOK_URL` to an HTTPS receiver to deliver a critical stale-heartbeat alert:
 
 ```powershell
 npm run operations:monitor -- --max-age-ms 120000
 ```
+
+Validate the local restart and lease controls without broker access:
+
+```powershell
+npm run paper-recovery:drill
+```
+
+Preview the Windows dry-run and read-only monitor schedule without registering tasks:
+
+```powershell
+npm run paper-supervisor:preview
+```
+
+Registration requires an explicit operator decision and an elevated PowerShell session; see
+`docs/paper-operations-runbook.md`. The supplied coordinator task is permanently dry-run and cannot
+submit an order.
 
 After at least five distinct bounded paper-trading days, evaluate the default operational soak
 criteria. This is a reliability gate, not evidence of profitability:

@@ -32,34 +32,45 @@ const percent = new Intl.NumberFormat("en-US", {
 
 export function App(): ReactElement {
   const [liveOps, setLiveOps] = useState<LiveOpsDashboardViewModel>(sampleLiveOpsDashboard);
+  const [liveOpsSource, setLiveOpsSource] = useState<"sample" | "snapshot">("sample");
 
   useEffect(() => {
     let cancelled = false;
 
-    fetch("/live-ops-snapshot.json")
-      .then((response) => (response.ok ? response.json() : undefined))
-      .then((snapshot: unknown) => {
-        if (!cancelled && snapshot) {
-          setLiveOps(snapshot as LiveOpsDashboardViewModel);
-        }
-      })
-      .catch(() => {
-        // Missing local snapshots are expected before the first live-ops poll.
-      });
+    const refresh = () => {
+      fetch("/live-ops-snapshot.json", { cache: "no-store" })
+        .then((response) => (response.ok ? response.json() : undefined))
+        .then((snapshot: unknown) => {
+          if (!cancelled && snapshot) {
+            setLiveOps(snapshot as LiveOpsDashboardViewModel);
+            setLiveOpsSource("snapshot");
+          }
+        })
+        .catch(() => {
+          // Missing local snapshots are expected before the first live-ops poll.
+        });
+    };
+    refresh();
+    const interval = window.setInterval(refresh, 30_000);
 
     return () => {
       cancelled = true;
+      window.clearInterval(interval);
     };
   }, []);
 
-  return <Dashboard liveOps={liveOps} report={sampleDashboardReport} />;
+  return (
+    <Dashboard liveOps={liveOps} liveOpsSource={liveOpsSource} report={sampleDashboardReport} />
+  );
 }
 
 function Dashboard({
   liveOps,
+  liveOpsSource,
   report
 }: {
   liveOps: LiveOpsDashboardViewModel;
+  liveOpsSource: "sample" | "snapshot";
   report: DashboardReportViewModel;
 }): ReactElement {
   const [activeView, setActiveView] = useState<"operations" | "backtests">("operations");
@@ -67,6 +78,7 @@ function Dashboard({
   const equityRows = mergeEquitySeries(report);
   const totalAlerts = report.runs.reduce((sum, run) => sum + run.alertCount, 0);
   const totalRiskRejections = report.runs.reduce((sum, run) => sum + run.riskRejectionCount, 0);
+  const snapshotIsStale = Date.now() - new Date(liveOps.updatedAt).getTime() > 120_000;
 
   return (
     <main className="shell">
@@ -80,6 +92,14 @@ function Dashboard({
           <span>{liveOps.executable ? "executable" : "blocked"}</span>
           <span>{liveOps.mode}</span>
           <span>{new Date(liveOps.updatedAt).toLocaleString()}</span>
+          <span className={`data-source ${liveOpsSource === "sample" ? "sample" : ""}`}>
+            {liveOpsSource === "sample"
+              ? "SAMPLE OPERATIONS DATA"
+              : snapshotIsStale
+                ? "STALE LOCAL SNAPSHOT"
+                : "CURRENT LOCAL SNAPSHOT"}
+          </span>
+          <span className="data-source sample">SAMPLE BACKTEST DATA</span>
         </div>
       </header>
 

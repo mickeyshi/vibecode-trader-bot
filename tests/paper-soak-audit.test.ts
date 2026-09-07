@@ -48,6 +48,21 @@ describe("paper soak audit", () => {
       ])
     );
   });
+
+  it("excludes snapshots that were not coordinator soak runs", () => {
+    const historical = snapshot("2026-06-14");
+    historical.headlineStatus = "blocked";
+    delete historical.paperRun;
+    const audit = evaluatePaperSoak([historical, snapshot("2026-06-15")], {
+      minimumDays: 1,
+      minimumExecutions: 1,
+      maximumRejectedCycles: 0,
+      maximumStaleCycles: 0
+    });
+    expect(audit.passed).toBe(true);
+    expect(audit.blockedSnapshotCount).toBe(0);
+    expect(audit.excludedNonRunSnapshotCount).toBe(1);
+  });
 });
 
 function snapshot(date: string): LiveOpsDashboardViewModel {

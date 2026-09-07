@@ -13,6 +13,7 @@ import { FixedNotionalIntentMapper } from "../strategies/fixed-notional-intent-m
 import { createDefaultStrategyRegistry } from "../strategies/registry.js";
 import { AlpacaOrderExecutor } from "./alpaca-order-executor.js";
 import { JournaledOrderExecutor } from "./journaled-order-executor.js";
+import { buildConfigurationEvidence } from "./configuration-fingerprint.js";
 import { loadAlpacaTradingConfig } from "./alpaca-trading-config.js";
 import { regularUsEquitiesMarketSession } from "./market-session.js";
 import { parsePaperCoordinatorArgs } from "./paper-trading-coordinator-cli.js";
@@ -74,6 +75,39 @@ const maxOrderNotional =
   cli.sizingMode === "allocation"
     ? Math.min(cli.maxOrderNotional, targetAllocationNotional)
     : cli.maxOrderNotional;
+const configuration = buildConfigurationEvidence({
+  mode: tradingConfig.mode,
+  symbols,
+  strategyId: cli.strategyId,
+  strategyParams: cli.strategyParams,
+  sizingMode: cli.sizingMode,
+  notionalPerTrade: cli.notionalPerTrade,
+  targetAllocationPct: cli.targetAllocationPct,
+  allocationWeights: cli.allocationWeights,
+  maxTotalAllocationPct: cli.maxTotalAllocationPct,
+  minNotionalPerTrade: cli.minNotionalPerTrade,
+  maxOrderNotional,
+  maxPositionNotional: cli.maxPositionNotional,
+  maxExecutionsPerRun: cli.maxExecutionsPerRun,
+  maxNotionalPerRun: cli.maxNotionalPerRun,
+  maxPendingOrderAgeMs: cli.maxPendingOrderAgeMs,
+  maxPositionDriftNotional: cli.maxPositionDriftNotional,
+  maxCandleAgeMs: cli.maxCandleAgeMs,
+  maxHistoryCandles: cli.maxHistoryCandles,
+  iterations: cli.iterations,
+  intervalMs: cli.intervalMs,
+  dryRun: cli.dryRun,
+  marketSessionMode: cli.marketSessionMode,
+  marketSessionTimeZone: cli.marketSessionTimeZone,
+  marketSessionOpenTime: cli.marketSessionOpenTime,
+  marketSessionCloseTime: cli.marketSessionCloseTime,
+  marketSessionHolidays: cli.marketSessionHolidays,
+  maxDailyLoss: snapshotConfig.maxDailyLoss,
+  maxGrossExposurePct: snapshotConfig.maxGrossExposurePct,
+  killSwitchArmed: snapshotConfig.killSwitchArmed,
+  stopAfterBreakEven: snapshotConfig.stopAfterBreakEven,
+  requirePriorBreakEvenAudit: snapshotConfig.requirePriorBreakEvenAudit
+});
 const coordinatorRequest: PaperTradingCoordinatorRequest = {
   symbols,
   iterations: cli.iterations,
@@ -112,6 +146,8 @@ const coordinatorRequest: PaperTradingCoordinatorRequest = {
   maxHistoryCandles: cli.maxHistoryCandles,
   maxExecutionsPerRun: cli.maxExecutionsPerRun,
   maxNotionalPerRun: cli.maxNotionalPerRun,
+  maxPendingOrderAgeMs: cli.maxPendingOrderAgeMs,
+  maxPositionDriftNotional: cli.maxPositionDriftNotional,
   dryRun: cli.dryRun,
   ...(cli.marketSessionMode === "regular"
     ? {
@@ -135,7 +171,7 @@ const coordinatorRequest: PaperTradingCoordinatorRequest = {
       status: "running",
       timestamp: timestamp.toISOString(),
       ownerId: leaseOwner,
-      detail: `iteration=${iteration + 1}`
+      detail: `iteration=${iteration + 1}; config=${configuration.fingerprint}`
     });
   }
 };
@@ -169,6 +205,7 @@ console.log(
   JSON.stringify(
     {
       runSummary: result.runSummary,
+      configuration,
       cycles: result.cycles,
       executions: result.executions,
       liveOps: historyResult.latestSnapshot

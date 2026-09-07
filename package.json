@@ -27,7 +27,9 @@
     "live-ops:snapshot": "tsx src/dashboard/run-live-ops-snapshot.ts",
     "operations:monitor": "tsx src/observability/run-operations-monitor.ts",
     "test:alpaca:integration": "vitest run tests/alpaca-paper.integration.test.ts",
-    "paper-soak:audit": "tsx src/eval/run-paper-soak-audit.ts"
+    "paper-soak:audit": "tsx src/eval/run-paper-soak-audit.ts",
+    "paper-recovery:drill": "tsx src/execution/run-recovery-drill.ts",
+    "paper-supervisor:preview": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-paper-supervisor.ps1"
   },
   "engines": {
     "node": ">=22"

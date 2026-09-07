@@ -75,6 +75,21 @@ h2 {
   font-size: 0.9rem;
 }
 
+.data-source {
+  border: 1px solid #86a789;
+  border-radius: 999px;
+  color: #285430;
+  font-size: 0.72rem;
+  font-weight: 700;
+  padding: 0.2rem 0.55rem;
+}
+
+.data-source.sample {
+  background: #fff1d6;
+  border-color: #d69e2e;
+  color: #7a4b00;
+}
+
 .run-meta span {
   padding: 6px 8px;
   border: 1px solid #cbd5e1;
