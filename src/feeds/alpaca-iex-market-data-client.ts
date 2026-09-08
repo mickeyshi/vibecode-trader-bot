@@ -27,6 +27,9 @@ interface AlpacaHistoricalBarsResponse {
 export interface HistoricalBarsRequest {
   limit: number;
   end?: Date;
+  start?: Date;
+  timeframe?: "1Min" | "1Day";
+  adjustment?: "raw" | "split" | "dividend" | "all";
 }
 
 interface AlpacaLatestBar {
@@ -89,8 +92,14 @@ export class AlpacaIexMarketDataClient {
     if (!Number.isInteger(request.limit) || request.limit <= 0 || request.limit > 10_000) {
       throw new Error("Alpaca historical bars limit must be an integer from 1 through 10000.");
     }
-    if (request.end && Number.isNaN(request.end.getTime())) {
-      throw new Error("Alpaca historical bars end must be a valid date.");
+    if (
+      (request.end && Number.isNaN(request.end.getTime())) ||
+      (request.start && Number.isNaN(request.start.getTime()))
+    ) {
+      throw new Error("Alpaca historical bars start and end must be valid dates.");
+    }
+    if (request.start && request.end && request.start >= request.end) {
+      throw new Error("Alpaca historical bars start must be before end.");
     }
 
     const responses = await Promise.all(
@@ -98,8 +107,10 @@ export class AlpacaIexMarketDataClient {
         const symbol = requestedSymbol.toUpperCase();
         const url = new URL("/v2/stocks/bars", this.config.baseUrl);
         url.searchParams.set("symbols", symbol);
-        url.searchParams.set("timeframe", "1Min");
+        const timeframe = request.timeframe ?? "1Min";
+        url.searchParams.set("timeframe", timeframe);
         url.searchParams.set("feed", this.config.feed);
+        url.searchParams.set("adjustment", request.adjustment ?? "raw");
         url.searchParams.set("limit", String(request.limit));
         url.searchParams.set("sort", "desc");
         const end = request.end ?? new Date();
@@ -107,7 +118,7 @@ export class AlpacaIexMarketDataClient {
         const lookbackDays = Math.max(7, tradingWeeks * 7 + 7);
         url.searchParams.set(
           "start",
-          new Date(end.getTime() - lookbackDays * 86_400_000).toISOString()
+          (request.start ?? new Date(end.getTime() - lookbackDays * 86_400_000)).toISOString()
         );
         url.searchParams.set("end", end.toISOString());
 
@@ -127,7 +138,7 @@ export class AlpacaIexMarketDataClient {
             `Alpaca historical bars request failed with ${response.status} ${response.statusText}: ${sanitizedExternalErrorDetail(body)}`
           );
         }
-        return parseHistoricalBarsResponse(JSON.parse(body) as unknown, [symbol]);
+        return parseHistoricalBarsResponse(JSON.parse(body) as unknown, [symbol], timeframe);
       })
     );
 
@@ -166,7 +177,11 @@ export function parseLatestBarsResponse(raw: unknown, requestedSymbols: string[]
   });
 }
 
-export function parseHistoricalBarsResponse(raw: unknown, requestedSymbols: string[]): Candle[] {
+export function parseHistoricalBarsResponse(
+  raw: unknown,
+  requestedSymbols: string[],
+  timeframe: "1Min" | "1Day" = "1Min"
+): Candle[] {
   const response = objectValue(
     raw,
     "Alpaca historical bars response"
@@ -187,9 +202,9 @@ export function parseHistoricalBarsResponse(raw: unknown, requestedSymbols: stri
         const openTime = dateValue(bar.t, `${label}.t`);
         return {
           symbol,
-          timeframe: "1m" as const,
+          timeframe: timeframe === "1Day" ? ("1d" as const) : ("1m" as const),
           openTime,
-          closeTime: new Date(openTime.getTime() + 60_000),
+          closeTime: new Date(openTime.getTime() + (timeframe === "1Day" ? 86_400_000 : 60_000)),
           open: numberValue(bar.o, `${label}.o`),
           high: numberValue(bar.h, `${label}.h`),
           low: numberValue(bar.l, `${label}.l`),

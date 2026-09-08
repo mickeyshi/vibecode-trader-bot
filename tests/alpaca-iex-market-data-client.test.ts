@@ -75,6 +75,38 @@ describe("AlpacaIexMarketDataClient", () => {
     );
   });
 
+  it("requests and normalizes adjusted daily research bars", async () => {
+    let requestedUrl = "";
+    const client = new AlpacaIexMarketDataClient(
+      {
+        apiKeyId: "key-id",
+        apiSecretKey: "secret-key",
+        baseUrl: "https://data.alpaca.markets",
+        feed: "iex",
+        symbols: ["SPY"]
+      },
+      async (url) => {
+        requestedUrl = url;
+        return response({ bars: { SPY: [makeBar("2020-01-02T05:00:00Z")] } });
+      }
+    );
+
+    const candles = await client.getHistoricalBars(undefined, {
+      limit: 10_000,
+      start: new Date("2020-01-01T00:00:00Z"),
+      end: new Date("2020-12-31T23:59:59Z"),
+      timeframe: "1Day",
+      adjustment: "all"
+    });
+
+    const params = new URL(requestedUrl).searchParams;
+    expect(params.get("timeframe")).toBe("1Day");
+    expect(params.get("adjustment")).toBe("all");
+    expect(params.get("start")).toBe("2020-01-01T00:00:00.000Z");
+    expect(candles[0]).toMatchObject({ timeframe: "1d" });
+    expect(candles[0]?.closeTime.toISOString()).toBe("2020-01-03T05:00:00.000Z");
+  });
+
   it("accepts a valid response with no bars for the requested symbol", () => {
     expect(parseHistoricalBarsResponse({ bars: {} }, ["SPY"])).toEqual([]);
   });

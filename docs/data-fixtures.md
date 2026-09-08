@@ -109,3 +109,17 @@ before a backtest starts.
 - Stooq publishes free historical market-data downloads that can be useful for CSV-based experiments.
 
 Always check data-provider terms before using downloaded market data beyond local experimentation.
+
+## Local Alpaca ETF research data
+
+With Alpaca data credentials loaded, download adjusted daily research bars to the ignored data
+directory:
+
+```bash
+npm run research:download-etfs -- --symbols SPY,QQQ,IWM,IEF,GLD --from 2010-01-01 --to 2026-09-07
+npm run research:etf-momentum
+```
+
+The downloader records source metadata but never credentials. The available IEX history may begin
+later than the requested start date; inspect the returned symbol counts and date ranges before
+interpreting a backtest.

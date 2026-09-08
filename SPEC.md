@@ -63,6 +63,11 @@ momentum, and scored context against equal-exposure buy-and-hold across three sy
 two friction levels. Its Markdown report validates mechanics and conditional effects only; it is
 not historical out-of-sample evidence.
 
+A separate research-only ETF relative-momentum simulator can download adjusted Alpaca IEX daily
+bars and evaluate monthly, prior-close trend/momentum selection with volatility-targeted weights,
+cash, transaction costs, and parameter sensitivity. It is intentionally not connected to paper
+execution pending longer data, rolling out-of-sample validation, and a portfolio-allocation boundary.
+
 ### Paper Trading
 
 The paper path supports:
@@ -180,7 +185,8 @@ verified directly for the current session.
 ### Strategy Evaluation Gaps
 
 - No historical Alpaca bootstrap shared by backtest and paper modes.
-- No walk-forward, rolling out-of-sample, or parameter-stability workflow.
+- Parameter sensitivity exists for the ETF relative-momentum candidate, but no rolling
+  out-of-sample parameter-selection workflow exists.
 - No benchmark comparison, risk-adjusted return suite, turnover analysis, or exposure-by-time
   analysis beyond current report metrics.
 - No realistic liquidity, volume participation, latency, gap, halt, or order-book model.
@@ -253,6 +259,7 @@ documented, and explicitly approved:
 - `docs/paper-trading-validation.md`: detailed Alpaca paper validation procedure.
 - `docs/paper-operations-runbook.md`: supervision, recovery, escalation, and soak operations.
 - `docs/paper-soak-plan.md`: initial symbols, caps, stages, and acceptance evidence.
+- `docs/etf-momentum-research.md`: real-data ETF rotation method, results, and promotion gates.
 - `docs/interfaces.md`: architectural boundaries and normalized interfaces.
 - `docs/vertical-slice.md`: historical replay implementation notes.
 - `docs/spec-gaps.md`: legacy detailed roadmap; new gaps should also be reflected here or migrated
