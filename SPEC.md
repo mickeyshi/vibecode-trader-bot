@@ -65,8 +65,10 @@ not historical out-of-sample evidence.
 
 A separate research-only ETF relative-momentum simulator can download adjusted Alpaca IEX daily
 bars and evaluate monthly, prior-close trend/momentum selection with volatility-targeted weights,
-cash, transaction costs, and parameter sensitivity. It is intentionally not connected to paper
-execution pending longer data, rolling out-of-sample validation, and a portfolio-allocation boundary.
+cash, transaction costs, parameter sensitivity, and rolling chronological evaluation. A dedicated
+portfolio allocator returns bounded target weights without broker access. It is intentionally not
+connected to paper execution because its first four unseen folds underperformed the benchmark and
+selected unstable parameters.
 
 ### Paper Trading
 
@@ -185,8 +187,8 @@ verified directly for the current session.
 ### Strategy Evaluation Gaps
 
 - No historical Alpaca bootstrap shared by backtest and paper modes.
-- Parameter sensitivity exists for the ETF relative-momentum candidate, but no rolling
-  out-of-sample parameter-selection workflow exists.
+- Rolling parameter selection exists for the ETF relative-momentum candidate, but only four annual
+  unseen folds are available and the first result failed promotion criteria.
 - No benchmark comparison, risk-adjusted return suite, turnover analysis, or exposure-by-time
   analysis beyond current report metrics.
 - No realistic liquidity, volume participation, latency, gap, halt, or order-book model.

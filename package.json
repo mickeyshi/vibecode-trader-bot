@@ -19,6 +19,8 @@
     "backtest": "tsx src/eval/run-backtest.ts",
     "validate:advanced-strategies": "tsx src/eval/run-advanced-strategy-validation.ts",
     "research:etf-momentum": "tsx src/eval/run-etf-relative-momentum.ts",
+    "research:etf-walk-forward": "tsx src/eval/run-etf-momentum-walk-forward.ts",
+    "research:allocation-dry-run": "tsx src/portfolio/run-etf-allocation-dry-run.ts",
     "break-even:audit": "tsx src/dashboard/run-break-even-audit.ts",
     "ingest:alpaca-iex": "tsx src/feeds/run-alpaca-iex-ingest.ts",
     "research:download-etfs": "tsx src/feeds/run-alpaca-research-download.ts",

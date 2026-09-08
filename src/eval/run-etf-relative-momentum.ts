@@ -1,15 +1,8 @@
-import { readFile } from "node:fs/promises";
-import type { Candle } from "../core/types.js";
 import { DEFAULT_ETF_MOMENTUM_CONFIG, runEtfRelativeMomentum } from "./etf-relative-momentum.js";
+import { loadResearchCandles } from "./research-candle-loader.js";
 
 const path = process.argv[2] ?? "test-fixtures/data/alpaca-etf-daily.json";
-const raw = JSON.parse(await readFile(path, "utf8")) as { candles?: Record<string, unknown>[] };
-if (!Array.isArray(raw.candles)) throw new Error(`${path} does not contain a candles array.`);
-const candles: Candle[] = raw.candles.map((bar) => ({
-  ...(bar as unknown as Candle),
-  openTime: new Date(String(bar.openTime)),
-  closeTime: new Date(String(bar.closeTime))
-}));
+const candles = await loadResearchCandles(path);
 
 const configurations = [
   DEFAULT_ETF_MOMENTUM_CONFIG,
