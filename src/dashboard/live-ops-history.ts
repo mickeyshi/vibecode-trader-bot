@@ -20,12 +20,12 @@ export async function writeLiveOpsHistorySnapshot(
   await mkdir(options.historyDir, { recursive: true });
   await mkdirParent(options.latestPath);
 
-  const date = snapshot.updatedAt.slice(0, 10);
-  const historyPath = join(options.historyDir, `${date}.json`);
+  const timestamp = snapshot.updatedAt.replaceAll(":", "-");
+  const historyPath = join(options.historyDir, `${timestamp}.json`);
   await writeFile(historyPath, `${JSON.stringify(snapshot, null, 2)}\n`, "utf8");
 
   const historicalSnapshots = await loadLiveOpsHistory(options.historyDir);
-  const audit = buildBreakEvenAudit(historicalSnapshots);
+  const audit = buildBreakEvenAudit(latestSnapshotPerDay(historicalSnapshots));
   const latestSnapshot = {
     ...snapshot,
     breakEvenAudit: {
@@ -62,7 +62,11 @@ export async function loadLiveOpsHistory(historyDir: string): Promise<LiveOpsDas
     throw error;
   });
   const snapshotPaths = entries
-    .filter((entry) => entry.isFile() && /^\d{4}-\d{2}-\d{2}\.json$/.test(entry.name))
+    .filter(
+      (entry) =>
+        entry.isFile() &&
+        /^\d{4}-\d{2}-\d{2}(?:T\d{2}-\d{2}-\d{2}(?:\.\d{3})?Z)?\.json$/.test(entry.name)
+    )
     .map((entry) => join(historyDir, entry.name))
     .sort();
 
@@ -71,6 +75,16 @@ export async function loadLiveOpsHistory(historyDir: string): Promise<LiveOpsDas
       async (path) => JSON.parse(await readFile(path, "utf8")) as LiveOpsDashboardViewModel
     )
   );
+}
+
+function latestSnapshotPerDay(snapshots: LiveOpsDashboardViewModel[]): LiveOpsDashboardViewModel[] {
+  const byDay = new Map<string, LiveOpsDashboardViewModel>();
+  for (const snapshot of snapshots) {
+    const day = snapshot.updatedAt.slice(0, 10);
+    const existing = byDay.get(day);
+    if (!existing || snapshot.updatedAt > existing.updatedAt) byDay.set(day, snapshot);
+  }
+  return [...byDay.values()].sort((left, right) => left.updatedAt.localeCompare(right.updatedAt));
 }
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {

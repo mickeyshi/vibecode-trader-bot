@@ -23,7 +23,7 @@ describe("live ops history", () => {
       }
     );
 
-    expect(result.historyPath.endsWith("2026-06-20.json")).toBe(true);
+    expect(result.historyPath.endsWith("2026-06-20T20-00-00.000Z.json")).toBe(true);
     expect(result.audit).toMatchObject({
       dayCount: 2,
       metCount: 2,
@@ -40,6 +40,31 @@ describe("live ops history", () => {
       allDaysMet: boolean;
     };
     expect(audit.allDaysMet).toBe(true);
+  });
+
+  it("retains multiple same-day runs but counts one break-even day", async () => {
+    const historyDir = "reports/history-multiple-runs-test";
+    const latestPath = `${historyDir}/latest.json`;
+    const first = makeSnapshot("2026-06-21T14:00:00.000Z", 9_999);
+    first.paperRun = {
+      dryRun: false,
+      submittedNotional: 25,
+      maxNotionalPerRun: 25,
+      executionCount: 1,
+      maxExecutionsPerRun: 1,
+      skippedCount: 0
+    };
+    await writeLiveOpsHistorySnapshot(first, { historyDir, latestPath });
+    const result = await writeLiveOpsHistorySnapshot(
+      makeSnapshot("2026-06-21T15:00:00.000Z", 10_001),
+      { historyDir, latestPath }
+    );
+
+    const history = await loadLiveOpsHistory(historyDir);
+    expect(history).toHaveLength(2);
+    expect(history[0]?.paperRun?.executionCount).toBe(1);
+    expect(result.audit.dayCount).toBe(1);
+    expect(result.audit.metCount).toBe(1);
   });
 
   it("loads only dated live-ops history files", async () => {

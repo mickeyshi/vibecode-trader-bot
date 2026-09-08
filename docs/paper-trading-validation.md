@@ -186,6 +186,10 @@ criteria. This is a reliability gate, not evidence of profitability:
 npm run paper-soak:audit
 ```
 
+Coordinator history uses timestamped files so repeated same-day validation runs do not overwrite
+submission evidence. The break-even audit still uses only the latest snapshot from each UTC day,
+while the soak audit evaluates every retained coordinator run and counts distinct days separately.
+
 The opt-in integration file is skipped by the default suite. Enable only the read-only portion with
 `RUN_ALPACA_READ_ONLY_INTEGRATION=true`. The tiny paper-order lifecycle additionally requires
 `RUN_ALPACA_PAPER_ORDER_LIFECYCLE=true` and

@@ -106,7 +106,8 @@ seconds and labels sample, current, and stale data explicitly.
 The Backtests view currently uses bundled sample report data. Generated backtest report selection or
 upload is not implemented. The dashboard is read-only and has no order-entry controls.
 
-Local JSON files under `reports/` provide snapshots and run history. SQLite provides single-host
+Local JSON files under `reports/` provide snapshots and timestamped run history. Multiple runs per
+day are retained while break-even reporting selects the latest snapshot for each day. SQLite provides single-host
 coordinator recovery state, the pre-submit journal, and the execution lease. All are ignored by Git;
 SQLite is not a multi-host consensus system.
 
@@ -142,10 +143,12 @@ convergence quarantine, flattening, dashboard snapshots, audits, and view models
 
 Credentialed paper validation has demonstrated read-only account/data/calendar connectivity, a
 one-symbol dry run that reached an approved risk decision without submitting an order, and a tiny
-paper limit-order submit, lookup, and cancellation lifecycle. A final read-only check confirmed no
-integration-test order remained open. This status is local and time-sensitive; rerun the checks
-before relying on it. Actual paper fills, market conditions, and open account state must always be
-verified directly for the current session.
+paper limit-order submit, lookup, and cancellation lifecycle. On 2026-09-08, a guarded `$25` AAPL
+paper market order filled during the regular session; restart reconciliation quarantined the symbol,
+the following run skipped because the position existed, and a final read-only check found no open
+orders. This status is local and time-sensitive; rerun the checks before relying on it. Actual paper
+fills, market conditions, and open account state must always be verified directly for the current
+session.
 
 ## Live Readiness Progress
 
