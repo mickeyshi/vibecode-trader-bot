@@ -1,0 +1,17 @@
+{
+  "name": "Trader Operations",
+  "short_name": "Trader Ops",
+  "description": "Read-only paper trading operations and research reports.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#eef2f6",
+  "theme_color": "#0b1827",
+  "icons": [
+    {
+      "src": "/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

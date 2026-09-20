@@ -20,6 +20,11 @@ body {
   min-width: 320px;
 }
 
+body,
+button {
+  -webkit-tap-highlight-color: transparent;
+}
+
 button,
 input,
 table {
@@ -66,6 +71,12 @@ h2 {
   font-size: 1rem;
 }
 
+.mobile-subtitle {
+  margin: 6px 0 0;
+  color: #64748b;
+  font-size: 0.9rem;
+}
+
 .run-meta {
   display: flex;
   flex-wrap: wrap;
@@ -95,6 +106,45 @@ h2 {
   border: 1px solid #cbd5e1;
   border-radius: 6px;
   background: #ffffff;
+}
+
+.run-meta .connection.online {
+  border-color: #5eead4;
+  color: #0f766e;
+}
+
+.run-meta .connection.offline {
+  border-color: #fca5a5;
+  color: #991b1b;
+}
+
+.refresh-button {
+  min-height: 34px;
+  padding: 6px 12px;
+  border: 1px solid #183b56;
+  border-radius: 6px;
+  background: #183b56;
+  color: #fff;
+  font-weight: 800;
+}
+
+.refresh-button:disabled {
+  cursor: wait;
+  opacity: 0.65;
+}
+
+.sync-strip {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: -4px 0 16px;
+  padding: 10px 12px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #f8fafc;
+  color: #475569;
+  font-size: 0.82rem;
+  font-weight: 700;
 }
 
 .view-tabs {
@@ -434,7 +484,7 @@ td {
 
 @media (max-width: 640px) {
   .shell {
-    padding: 16px;
+    padding: 14px 12px calc(86px + env(safe-area-inset-bottom));
   }
 
   .summary-grid {
@@ -443,6 +493,57 @@ td {
 
   h1 {
     font-size: 1.6rem;
+  }
+
+  .topbar {
+    margin-bottom: 12px;
+  }
+
+  .run-meta {
+    width: 100%;
+  }
+
+  .run-meta > span:not(.connection):not(.data-source) {
+    display: none;
+  }
+
+  .refresh-button {
+    margin-left: auto;
+  }
+
+  .sync-strip {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .view-tabs {
+    position: fixed;
+    z-index: 20;
+    right: 12px;
+    bottom: calc(10px + env(safe-area-inset-bottom));
+    left: 12px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    margin: 0;
+    padding: 6px;
+    box-shadow: 0 8px 30px rgb(15 23 42 / 28%);
+  }
+
+  .view-tabs button {
+    min-height: 46px;
+  }
+
+  .metric {
+    min-height: 70px;
+    padding: 12px;
+  }
+
+  .panel {
+    overflow-x: auto;
+  }
+
+  table {
+    min-width: 560px;
   }
 
   th,

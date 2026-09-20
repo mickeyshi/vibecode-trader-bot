@@ -106,6 +106,11 @@ seconds and labels sample, current, and stale data explicitly.
 The Backtests view currently uses bundled sample report data. Generated backtest report selection or
 upload is not implemented. The dashboard is read-only and has no order-entry controls.
 
+The dashboard is also an installable, responsive PWA intended as the first Android reporting
+client. It exposes connection, freshness, and last-sync state and caches only the application shell,
+never live account snapshots. Remote mobile access is not supported until authenticated HTTPS
+hosting is selected and reviewed.
+
 Local JSON files under `reports/` provide snapshots and timestamped run history. Multiple runs per
 day are retained while break-even reporting selects the latest snapshot for each day. SQLite provides single-host
 coordinator recovery state, the pre-submit journal, and the execution lease. All are ignored by Git;

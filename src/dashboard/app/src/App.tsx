@@ -7,7 +7,7 @@ import {
   XAxis,
   YAxis
 } from "recharts";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { ReactElement } from "react";
 import type {
   LiveOpsDashboardViewModel,
@@ -33,45 +33,69 @@ const percent = new Intl.NumberFormat("en-US", {
 export function App(): ReactElement {
   const [liveOps, setLiveOps] = useState<LiveOpsDashboardViewModel>(sampleLiveOpsDashboard);
   const [liveOpsSource, setLiveOpsSource] = useState<"sample" | "snapshot">("sample");
+  const [online, setOnline] = useState(navigator.onLine);
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastRefresh, setLastRefresh] = useState<Date>();
 
-  useEffect(() => {
-    let cancelled = false;
-
-    const refresh = () => {
-      fetch("/live-ops-snapshot.json", { cache: "no-store" })
-        .then((response) => (response.ok ? response.json() : undefined))
-        .then((snapshot: unknown) => {
-          if (!cancelled && snapshot) {
-            setLiveOps(snapshot as LiveOpsDashboardViewModel);
-            setLiveOpsSource("snapshot");
-          }
-        })
-        .catch(() => {
-          // Missing local snapshots are expected before the first live-ops poll.
-        });
-    };
-    refresh();
-    const interval = window.setInterval(refresh, 30_000);
-
-    return () => {
-      cancelled = true;
-      window.clearInterval(interval);
-    };
+  const refresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      const response = await fetch("/live-ops-snapshot.json", { cache: "no-store" });
+      if (!response.ok) return;
+      setLiveOps((await response.json()) as LiveOpsDashboardViewModel);
+      setLiveOpsSource("snapshot");
+      setLastRefresh(new Date());
+    } catch {
+      // The last snapshot remains visible when the mobile client temporarily loses connectivity.
+    } finally {
+      setRefreshing(false);
+    }
   }, []);
 
+  useEffect(() => {
+    void refresh();
+    const interval = window.setInterval(() => void refresh(), 30_000);
+    const markOnline = () => setOnline(true);
+    const markOffline = () => setOnline(false);
+    window.addEventListener("online", markOnline);
+    window.addEventListener("offline", markOffline);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("online", markOnline);
+      window.removeEventListener("offline", markOffline);
+    };
+  }, [refresh]);
+
   return (
-    <Dashboard liveOps={liveOps} liveOpsSource={liveOpsSource} report={sampleDashboardReport} />
+    <Dashboard
+      liveOps={liveOps}
+      liveOpsSource={liveOpsSource}
+      report={sampleDashboardReport}
+      online={online}
+      refreshing={refreshing}
+      lastRefresh={lastRefresh}
+      refresh={refresh}
+    />
   );
 }
 
 function Dashboard({
   liveOps,
   liveOpsSource,
-  report
+  report,
+  online,
+  refreshing,
+  lastRefresh,
+  refresh
 }: {
   liveOps: LiveOpsDashboardViewModel;
   liveOpsSource: "sample" | "snapshot";
   report: DashboardReportViewModel;
+  online: boolean;
+  refreshing: boolean;
+  lastRefresh: Date | undefined;
+  refresh: () => Promise<void>;
 }): ReactElement {
   const [activeView, setActiveView] = useState<"operations" | "backtests">("operations");
   const leader = report.runs[0];
@@ -85,9 +109,13 @@ function Dashboard({
       <header className="topbar">
         <div>
           <p className="eyebrow">Trading operations</p>
-          <h1>Prototype Dashboard</h1>
+          <h1>Trader Ops</h1>
+          <p className="mobile-subtitle">Read-only paper trading monitor</p>
         </div>
         <div className="run-meta">
+          <span className={`connection ${online ? "online" : "offline"}`}>
+            {online ? "ONLINE" : "OFFLINE"}
+          </span>
           <StatusPill status={liveOps.headlineStatus} label={liveOps.headlineStatus} />
           <span>{liveOps.executable ? "executable" : "blocked"}</span>
           <span>{liveOps.mode}</span>
@@ -100,8 +128,25 @@ function Dashboard({
                 : "CURRENT LOCAL SNAPSHOT"}
           </span>
           <span className="data-source sample">SAMPLE BACKTEST DATA</span>
+          <button
+            className="refresh-button"
+            type="button"
+            onClick={() => void refresh()}
+            disabled={refreshing}
+          >
+            {refreshing ? "Refreshing…" : "Refresh"}
+          </button>
         </div>
       </header>
+
+      <div className="sync-strip" role="status">
+        <span>
+          {snapshotIsStale ? "Snapshot needs attention" : "Snapshot within freshness window"}
+        </span>
+        <span>
+          {lastRefresh ? `Checked ${lastRefresh.toLocaleTimeString()}` : "Waiting for first sync"}
+        </span>
+      </div>
 
       <nav className="view-tabs" aria-label="Dashboard views">
         <button

@@ -135,6 +135,20 @@ Open the URL printed by Vite, normally `http://localhost:5173`. The Operations t
 currently backed by bundled sample report data; loading a user-selected generated report is still a
 known gap.
 
+The dashboard is an installable, read-only PWA designed as the first Android reporting client. Build
+and test the production shell locally with:
+
+```powershell
+npm run dashboard:build
+npm run dashboard:preview -- --host 127.0.0.1
+```
+
+The app displays connection, snapshot freshness, and last-sync state. Its service worker caches the
+application shell but deliberately excludes `live-ops-snapshot.json`. Android installation from a
+different device requires an HTTPS-hosted endpoint; do not expose the local report server to a
+network or the internet until authentication, authorization, TLS, and deployment ownership have
+been selected and reviewed.
+
 ## Backtesting
 
 Run the default fixture and strategy:
