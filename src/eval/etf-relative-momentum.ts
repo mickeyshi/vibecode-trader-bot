@@ -7,6 +7,7 @@ import {
 
 export interface EtfMomentumConfig extends EtfMomentumAllocationConfig {
   transactionCostBps: number;
+  rebalanceDelaySessions: number;
 }
 
 export interface EtfMomentumResult {
@@ -29,7 +30,8 @@ export interface PerformanceSummary {
 
 export const DEFAULT_ETF_MOMENTUM_CONFIG: EtfMomentumConfig = {
   ...DEFAULT_ETF_MOMENTUM_ALLOCATION_CONFIG,
-  transactionCostBps: 10
+  transactionCostBps: 10,
+  rebalanceDelaySessions: 0
 };
 
 export function runEtfRelativeMomentum(
@@ -72,7 +74,8 @@ function simulate(
   let cash = startingEquity;
   const turnover: { date: string; value: number }[] = [];
   let rebalanceCount = 0;
-  let priorMonth = "";
+  let activeMonth = "";
+  let sessionInMonth = 0;
   const shares = new Map<string, number>();
   const histories = new Map<string, number[]>();
   const equity: { date: string; value: number }[] = [];
@@ -81,7 +84,11 @@ function simulate(
   for (const date of dates) {
     const bars = byDate.get(date)!;
     const month = date.slice(0, 7);
-    if (month !== priorMonth) {
+    if (month !== activeMonth) {
+      activeMonth = month;
+      sessionInMonth = 0;
+    }
+    if (sessionInMonth === config.rebalanceDelaySessions) {
       const prices = new Map(bars.map((bar) => [bar.symbol, bar.open]));
       const currentEquity = portfolioValue(cash, shares, prices);
       const warmedUp = [...histories.values()].every(
@@ -107,7 +114,6 @@ function simulate(
         shares.set(symbol, desiredValue / price);
         turnover.push({ date, value: tradedValue / currentEquity });
       }
-      priorMonth = month;
       rebalanceCount += 1;
     }
 
@@ -118,6 +124,7 @@ function simulate(
       history.push(bar.close);
       histories.set(bar.symbol, history);
     }
+    sessionInMonth += 1;
   }
   return { equity, turnover, rebalanceCount };
 }
@@ -204,6 +211,9 @@ function validateConfig(config: EtfMomentumConfig): void {
   }
   if (config.transactionCostBps < 0 || config.targetAnnualVolatility <= 0) {
     throw new Error("Volatility target must be positive and costs non-negative.");
+  }
+  if (!Number.isInteger(config.rebalanceDelaySessions) || config.rebalanceDelaySessions < 0) {
+    throw new Error("Rebalance delay must be a non-negative integer.");
   }
 }
 

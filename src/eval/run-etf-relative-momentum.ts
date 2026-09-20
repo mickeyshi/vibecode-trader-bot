@@ -10,7 +10,9 @@ const configurations = [
   { ...DEFAULT_ETF_MOMENTUM_CONFIG, momentumWindow: 189 },
   { ...DEFAULT_ETF_MOMENTUM_CONFIG, trendWindow: 150 },
   { ...DEFAULT_ETF_MOMENTUM_CONFIG, trendWindow: 250 },
-  { ...DEFAULT_ETF_MOMENTUM_CONFIG, transactionCostBps: 25 }
+  { ...DEFAULT_ETF_MOMENTUM_CONFIG, transactionCostBps: 25 },
+  { ...DEFAULT_ETF_MOMENTUM_CONFIG, rebalanceDelaySessions: 1 },
+  { ...DEFAULT_ETF_MOMENTUM_CONFIG, rebalanceDelaySessions: 5 }
 ];
 const results = configurations.map((configuration) => ({
   configuration,
@@ -25,6 +27,7 @@ console.log(
       limitations: [
         "Available histories begin between 2018-11-01 and 2020-07-27, depending on symbol.",
         "No taxes, market impact, borrow, intraday execution, or point-in-time constituent changes.",
+        "Delayed scenarios move each monthly rebalance by one or five common trading sessions.",
         "Parameter variants are sensitivity checks, not independent out-of-sample proof."
       ],
       results

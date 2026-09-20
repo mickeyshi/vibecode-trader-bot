@@ -45,6 +45,12 @@ similar results; the 250-session variant had the best observed Sharpe and drawdo
 cost from 10 to 25 basis points reduced the base result from 47.88% to 42.45%, demonstrating material
 turnover sensitivity.
 
+Delaying each monthly rebalance by one common trading session reduced return to 45.21% and raised
+maximum drawdown to 13.04%. A five-session delay returned 45.50% with 12.54% maximum drawdown. The
+candidate remained profitable in both timing stresses, but the one-session result lost 2.67
+percentage points versus the exact-schedule base case. These are sensitivity tests on the same
+sample, not independent evidence.
+
 ## Promotion gates
 
 Before coordinator integration:
@@ -52,7 +58,8 @@ Before coordinator integration:
 1. Obtain at least 10 years of point-in-time history or explicitly accept the shorter evidence.
 2. Add rolling out-of-sample evaluation with frozen parameter selection.
 3. Include a positive risk-free cash return and total-return benchmark validation.
-4. Attribute returns by symbol, regime, and year and test delayed/missed rebalances.
+4. Attribute returns by symbol, regime, and year; delayed rebalances are now tested, while fully
+   missed rebalances remain outstanding.
 5. Add a portfolio-allocation boundary; do not force cross-symbol ranking into the per-symbol
    `Strategy` interface.
 6. Add news only as a separately tested event veto, with publication timestamps and duplicate-story

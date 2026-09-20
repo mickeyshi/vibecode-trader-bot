@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import type { Candle } from "../src/core/types.js";
-import { runEtfRelativeMomentum } from "../src/eval/etf-relative-momentum.js";
+import {
+  DEFAULT_ETF_MOMENTUM_CONFIG,
+  runEtfRelativeMomentum
+} from "../src/eval/etf-relative-momentum.js";
 
 describe("ETF relative momentum research simulation", () => {
   it("runs a prior-close monthly rotation without leverage", () => {
@@ -35,4 +38,54 @@ describe("ETF relative momentum research simulation", () => {
   it("refuses insufficient history", () => {
     expect(() => runEtfRelativeMomentum([])).toThrow("Not enough daily candles");
   });
+
+  it("models delayed monthly rebalances without changing the observation window", () => {
+    const candles = trendingCandles(420);
+    const immediate = runEtfRelativeMomentum(candles);
+    const delayed = runEtfRelativeMomentum(candles, {
+      ...DEFAULT_ETF_MOMENTUM_CONFIG,
+      rebalanceDelaySessions: 5
+    });
+    expect(delayed.firstDate).toBe(immediate.firstDate);
+    expect(delayed.lastDate).toBe(immediate.lastDate);
+    expect(delayed.strategy.endingEquity).not.toBe(immediate.strategy.endingEquity);
+  });
+
+  it("rejects a negative or fractional rebalance delay", () => {
+    const candles = trendingCandles(320);
+    for (const rebalanceDelaySessions of [-1, 1.5]) {
+      expect(() =>
+        runEtfRelativeMomentum(candles, {
+          ...DEFAULT_ETF_MOMENTUM_CONFIG,
+          rebalanceDelaySessions
+        })
+      ).toThrow("Rebalance delay");
+    }
+  });
 });
+
+function trendingCandles(days: number): Candle[] {
+  const candles: Candle[] = [];
+  for (let day = 0; day < days; day += 1) {
+    const time = new Date(Date.UTC(2022, 0, 1 + day));
+    for (const [symbol, slope] of [
+      ["SPY", 0.001],
+      ["QQQ", day % 40 < 20 ? 0.002 : -0.0005],
+      ["IEF", 0.0001]
+    ] as const) {
+      const close = 100 * (1 + slope) ** day;
+      candles.push({
+        symbol,
+        timeframe: "1d",
+        openTime: time,
+        closeTime: time,
+        open: close,
+        high: close,
+        low: close,
+        close,
+        volume: 1_000_000
+      });
+    }
+  }
+  return candles;
+}
