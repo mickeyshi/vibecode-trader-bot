@@ -30,6 +30,16 @@ export interface PerformanceSummary {
   turnover: number;
   annualReturnsPct: Record<string, number>;
   symbolContributionPct: Record<string, number>;
+  regimeContributionPct: Record<MarketRegime, number>;
+}
+
+export type MarketRegime = "warmup" | "risk-on" | "risk-off";
+
+interface ContributionEntry {
+  date: string;
+  symbol: string;
+  regime: MarketRegime;
+  value: number;
 }
 
 export const DEFAULT_ETF_MOMENTUM_CONFIG: EtfMomentumConfig = {
@@ -87,13 +97,13 @@ function simulate(
 ): {
   equity: { date: string; value: number }[];
   turnover: { date: string; value: number }[];
-  contributions: { date: string; symbol: string; value: number }[];
+  contributions: ContributionEntry[];
   rebalanceCount: number;
   missedRebalanceCount: number;
 } {
   let cash = startingEquity;
   const turnover: { date: string; value: number }[] = [];
-  const contributions: { date: string; symbol: string; value: number }[] = [];
+  const contributions: ContributionEntry[] = [];
   let rebalanceCount = 0;
   let missedRebalanceCount = 0;
   let scheduledRebalanceCount = 0;
@@ -107,6 +117,7 @@ function simulate(
 
   for (const date of dates) {
     const bars = byDate.get(date)!;
+    const regime = classifyRegime(histories.get("SPY") ?? []);
     for (const bar of bars) {
       const priorClose = priorCloses.get(bar.symbol);
       const quantity = shares.get(bar.symbol) ?? 0;
@@ -114,6 +125,7 @@ function simulate(
         contributions.push({
           date,
           symbol: bar.symbol,
+          regime,
           value: quantity * (bar.open - priorClose)
         });
       }
@@ -155,7 +167,7 @@ function simulate(
           cash += currentValue - desiredValue - cost;
           shares.set(symbol, desiredValue / price);
           turnover.push({ date, value: tradedValue / currentEquity });
-          contributions.push({ date, symbol, value: -cost });
+          contributions.push({ date, symbol, regime, value: -cost });
         }
         rebalanceCount += 1;
       }
@@ -168,6 +180,7 @@ function simulate(
         contributions.push({
           date,
           symbol: bar.symbol,
+          regime,
           value: quantity * (bar.close - bar.open)
         });
       }
@@ -187,7 +200,7 @@ function simulate(
 function summarize(
   allEquity: { date: string; value: number }[],
   turnoverEntries: { date: string; value: number }[],
-  contributionEntries: { date: string; symbol: string; value: number }[],
+  contributionEntries: ContributionEntry[],
   startingEquity: number,
   evaluationStartDate?: string
 ): PerformanceSummary {
@@ -226,12 +239,17 @@ function summarize(
       contributionEntries,
       baselineEquity,
       evaluationStartDate
+    ),
+    regimeContributionPct: regimeContributions(
+      contributionEntries,
+      baselineEquity,
+      evaluationStartDate
     )
   };
 }
 
 function symbolContributions(
-  entries: { date: string; symbol: string; value: number }[],
+  entries: ContributionEntry[],
   baselineEquity: number,
   evaluationStartDate?: string
 ): Record<string, number> {
@@ -245,6 +263,31 @@ function symbolContributions(
       .sort(([left], [right]) => left.localeCompare(right))
       .map(([symbol, value]) => [symbol, round((value / baselineEquity) * 100)])
   );
+}
+
+function regimeContributions(
+  entries: ContributionEntry[],
+  baselineEquity: number,
+  evaluationStartDate?: string
+): Record<MarketRegime, number> {
+  const values: Record<MarketRegime, number> = { warmup: 0, "risk-on": 0, "risk-off": 0 };
+  for (const entry of entries) {
+    if (evaluationStartDate && entry.date <= evaluationStartDate) continue;
+    values[entry.regime] += entry.value;
+  }
+  return {
+    warmup: round((values.warmup / baselineEquity) * 100),
+    "risk-on": round((values["risk-on"] / baselineEquity) * 100),
+    "risk-off": round((values["risk-off"] / baselineEquity) * 100)
+  };
+}
+
+function classifyRegime(spyHistory: number[]): MarketRegime {
+  if (spyHistory.length < 200) return "warmup";
+  const latest = spyHistory.at(-1)!;
+  const trendAverage = average(spyHistory.slice(-200));
+  const momentumBase = spyHistory.at(-64)!;
+  return latest > trendAverage && latest > momentumBase ? "risk-on" : "risk-off";
 }
 
 function annualReturns(

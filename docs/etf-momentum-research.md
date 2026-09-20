@@ -67,6 +67,12 @@ portfolio return. In the base case, GLD contributed 22.03 percentage points, QQQ
 IWM 1.01, and IEF -2.73. The strategy's result is therefore concentrated in gold and growth-equity
 exposure over this particular sample; the nominally defensive bond sleeve detracted.
 
+Point-in-time regime attribution uses only prior SPY closes: risk-on requires price above its
+200-session average and positive 63-session momentum. The base strategy generated 40.76 percentage
+points in risk-on conditions and 7.12 in risk-off conditions. These are P&L contributions rather
+than regime-normalized return rates, but they show that most aggregate profit still came during a
+favorable equity trend.
+
 ## Promotion gates
 
 Before coordinator integration:
@@ -74,8 +80,8 @@ Before coordinator integration:
 1. Obtain at least 10 years of point-in-time history or explicitly accept the shorter evidence.
 2. Add rolling out-of-sample evaluation with frozen parameter selection.
 3. Include a positive risk-free cash return and total-return benchmark validation.
-4. Attribute returns by regime. Symbol contribution, calendar-year returns, and delayed and
-   deterministically missed rebalances are now reported.
+4. Completed: point-in-time regime and symbol contribution, calendar-year returns, and delayed and
+   deterministically missed rebalances are reported.
 5. Add a portfolio-allocation boundary; do not force cross-symbol ranking into the per-symbol
    `Strategy` interface.
 6. Add news only as a separately tested event veto, with publication timestamps and duplicate-story

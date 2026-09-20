@@ -38,6 +38,9 @@ describe("ETF relative momentum research simulation", () => {
     expect(
       Object.values(result.strategy.symbolContributionPct).reduce((sum, value) => sum + value, 0)
     ).toBeCloseTo(result.strategy.totalReturnPct, 3);
+    expect(
+      Object.values(result.strategy.regimeContributionPct).reduce((sum, value) => sum + value, 0)
+    ).toBeCloseTo(result.strategy.totalReturnPct, 3);
   });
 
   it("refuses insufficient history", () => {
