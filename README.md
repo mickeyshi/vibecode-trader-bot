@@ -155,6 +155,15 @@ The production server deliberately refuses `0.0.0.0` and other non-loopback bind
 authentication boundary proposed in ADR 0012 is selected and implemented. Do not use the Vite
 preview server as public hosting.
 
+Before packaging a paper-only deployment, load its runtime environment and run the fail-closed
+preflight. It verifies paper mode and endpoint separation, live-disabled controls, the armed kill
+switch, credential presence, the built PWA, and writable persistent reporting storage. Its output
+never includes credential values.
+
+```powershell
+npm run deployment:preflight
+```
+
 The app displays connection, snapshot freshness, and last-sync state. Its service worker caches the
 application shell but deliberately excludes `live-ops-snapshot.json`. Android installation from a
 different device requires an HTTPS-hosted endpoint; do not expose the local report server to a

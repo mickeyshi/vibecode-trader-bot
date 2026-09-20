@@ -10,6 +10,7 @@
     "dashboard:dev": "vite --config vite.dashboard.config.ts",
     "dashboard:preview": "vite preview --config vite.dashboard.config.ts",
     "dashboard:serve": "tsx src/dashboard/run-production-server.ts",
+    "deployment:preflight": "tsx src/deployment/run-paper-deployment-preflight.ts",
     "typecheck": "tsc --noEmit",
     "typecheck:dashboard": "tsc -p tsconfig.dashboard.json --noEmit",
     "test": "vitest run --passWithNoTests",
