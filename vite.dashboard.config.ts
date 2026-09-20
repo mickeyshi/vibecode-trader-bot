@@ -2,6 +2,10 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
+import {
+  buildDashboardReportIndex,
+  loadIndexedDashboardReport
+} from "./src/dashboard/report-index.js";
 
 function liveSnapshotMiddleware() {
   const serveSnapshot = async (
@@ -35,8 +39,51 @@ function liveSnapshotMiddleware() {
   };
 }
 
+function backtestReportMiddleware() {
+  const serveReports = async (
+    request: { url?: string },
+    response: {
+      statusCode: number;
+      setHeader(name: string, value: string): void;
+      end(body?: string): void;
+    },
+    next: () => void
+  ) => {
+    const path = request.url?.split("?", 1)[0];
+    if (!path?.startsWith("/api/backtests")) return next();
+    response.setHeader("Content-Type", "application/json; charset=utf-8");
+    response.setHeader("Cache-Control", "no-store");
+    try {
+      if (path === "/api/backtests") {
+        response.end(JSON.stringify(await buildDashboardReportIndex()));
+        return;
+      }
+      const id = path.match(/^\/api\/backtests\/([a-f0-9]{16})$/)?.[1];
+      const report = id ? await loadIndexedDashboardReport(id) : undefined;
+      if (!report) {
+        response.statusCode = 404;
+        response.end(JSON.stringify({ error: "Backtest report not found." }));
+        return;
+      }
+      response.end(JSON.stringify(report));
+    } catch {
+      response.statusCode = 500;
+      response.end(JSON.stringify({ error: "Backtest report index failed." }));
+    }
+  };
+  return {
+    name: "backtest-report-api",
+    configureServer(server: { middlewares: { use(handler: typeof serveReports): void } }) {
+      server.middlewares.use(serveReports);
+    },
+    configurePreviewServer(server: { middlewares: { use(handler: typeof serveReports): void } }) {
+      server.middlewares.use(serveReports);
+    }
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), liveSnapshotMiddleware()],
+  plugins: [react(), liveSnapshotMiddleware(), backtestReportMiddleware()],
   root: "src/dashboard/app",
   publicDir: "public",
   build: {

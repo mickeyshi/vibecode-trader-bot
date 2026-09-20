@@ -149,6 +149,10 @@ different device requires an HTTPS-hosted endpoint; do not expose the local repo
 network or the internet until authentication, authorization, TLS, and deployment ownership have
 been selected and reviewed.
 
+The Backtests tab indexes valid JSON backtest reports under ignored `reports/` and lets the operator
+switch reports without rebuilding the UI. Its local API returns normalized dashboard view models,
+not raw files, and skips malformed JSON, operational snapshots, and configuration artifacts.
+
 ## Backtesting
 
 Run the default fixture and strategy:

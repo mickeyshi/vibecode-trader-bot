@@ -103,8 +103,10 @@ readiness gates, controls, risk limits, paper-run summaries, paper decisions, po
 It falls back to bundled sample data when no snapshot is available. Operations refreshes every 30
 seconds and labels sample, current, and stale data explicitly.
 
-The Backtests view currently uses bundled sample report data. Generated backtest report selection or
-upload is not implemented. The dashboard is read-only and has no order-entry controls.
+The Backtests view indexes locally generated JSON backtest reports and lets the operator select a
+normalized report, while retaining bundled sample data as a fallback. Invalid reports and unrelated
+operational JSON are excluded. File upload is not implemented. The dashboard is read-only and has no
+order-entry controls.
 
 The dashboard is also an installable, responsive PWA intended as the first Android reporting
 client. It exposes connection, freshness, and last-sync state and caches only the application shell,
@@ -207,7 +209,6 @@ session.
 
 ### Dashboard and Operations Gaps
 
-- Backtest report selection/loading is not wired into the UI.
 - Operations data refreshes by polling rather than streaming.
 - No authentication, authorization, multi-user controls, or hosted access model.
 - No interactive order controls by design; any future control must require a separate safety review.

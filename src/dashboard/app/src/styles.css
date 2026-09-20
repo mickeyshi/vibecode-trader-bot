@@ -27,8 +27,42 @@ button {
 
 button,
 input,
+select,
 table {
   font: inherit;
+}
+
+.report-picker {
+  display: grid;
+  grid-template-columns: auto minmax(220px, 1fr) auto;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 16px;
+  padding: 12px 14px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.report-picker label {
+  color: #475569;
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.report-picker select {
+  min-height: 40px;
+  padding: 8px 10px;
+  border: 1px solid #94a3b8;
+  border-radius: 6px;
+  background: #fff;
+  color: #172033;
+}
+
+.report-picker span {
+  color: #64748b;
+  font-size: 0.82rem;
 }
 
 button {
@@ -514,6 +548,10 @@ td {
   .sync-strip {
     align-items: flex-start;
     flex-direction: column;
+  }
+
+  .report-picker {
+    grid-template-columns: 1fr;
   }
 
   .view-tabs {

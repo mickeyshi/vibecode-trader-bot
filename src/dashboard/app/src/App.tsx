@@ -15,6 +15,7 @@ import type {
   LiveOpsReadinessStatus,
   LiveOpsRiskLimit
 } from "../../live-ops-view-model.js";
+import type { DashboardReportIndexEntry } from "../../report-index.js";
 import type { DashboardReportViewModel, DashboardRunSummary } from "../../report-view-model.js";
 import { sampleLiveOpsDashboard } from "./sample-live-ops.js";
 import { sampleDashboardReport } from "./sample-report.js";
@@ -36,6 +37,10 @@ export function App(): ReactElement {
   const [online, setOnline] = useState(navigator.onLine);
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date>();
+  const [report, setReport] = useState<DashboardReportViewModel>(sampleDashboardReport);
+  const [reportEntries, setReportEntries] = useState<DashboardReportIndexEntry[]>([]);
+  const [selectedReportId, setSelectedReportId] = useState("sample");
+  const [reportLoading, setReportLoading] = useState(false);
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
@@ -67,11 +72,41 @@ export function App(): ReactElement {
     };
   }, [refresh]);
 
+  useEffect(() => {
+    fetch("/api/backtests", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : undefined))
+      .then((index: { reports?: DashboardReportIndexEntry[] } | undefined) => {
+        if (index?.reports) setReportEntries(index.reports);
+      })
+      .catch(() => {
+        // Bundled sample research remains available when the local report API is unavailable.
+      });
+  }, []);
+
+  const selectReport = useCallback(async (id: string) => {
+    setSelectedReportId(id);
+    if (id === "sample") {
+      setReport(sampleDashboardReport);
+      return;
+    }
+    setReportLoading(true);
+    try {
+      const response = await fetch(`/api/backtests/${id}`, { cache: "no-store" });
+      if (response.ok) setReport((await response.json()) as DashboardReportViewModel);
+    } finally {
+      setReportLoading(false);
+    }
+  }, []);
+
   return (
     <Dashboard
       liveOps={liveOps}
       liveOpsSource={liveOpsSource}
-      report={sampleDashboardReport}
+      report={report}
+      reportEntries={reportEntries}
+      selectedReportId={selectedReportId}
+      reportLoading={reportLoading}
+      selectReport={selectReport}
       online={online}
       refreshing={refreshing}
       lastRefresh={lastRefresh}
@@ -84,6 +119,10 @@ function Dashboard({
   liveOps,
   liveOpsSource,
   report,
+  reportEntries,
+  selectedReportId,
+  reportLoading,
+  selectReport,
   online,
   refreshing,
   lastRefresh,
@@ -92,6 +131,10 @@ function Dashboard({
   liveOps: LiveOpsDashboardViewModel;
   liveOpsSource: "sample" | "snapshot";
   report: DashboardReportViewModel;
+  reportEntries: DashboardReportIndexEntry[];
+  selectedReportId: string;
+  reportLoading: boolean;
+  selectReport: (id: string) => Promise<void>;
   online: boolean;
   refreshing: boolean;
   lastRefresh: Date | undefined;
@@ -172,6 +215,10 @@ function Dashboard({
           equityRows={equityRows}
           leader={leader}
           report={report}
+          reportEntries={reportEntries}
+          selectedReportId={selectedReportId}
+          reportLoading={reportLoading}
+          selectReport={selectReport}
           totalAlerts={totalAlerts}
           totalRiskRejections={totalRiskRejections}
         />
@@ -423,17 +470,42 @@ function BacktestDashboard({
   equityRows,
   leader,
   report,
+  reportEntries,
+  selectedReportId,
+  reportLoading,
+  selectReport,
   totalAlerts,
   totalRiskRejections
 }: {
   equityRows: Record<string, unknown>[];
   leader: DashboardRunSummary | undefined;
   report: DashboardReportViewModel;
+  reportEntries: DashboardReportIndexEntry[];
+  selectedReportId: string;
+  reportLoading: boolean;
+  selectReport: (id: string) => Promise<void>;
   totalAlerts: number;
   totalRiskRejections: number;
 }): ReactElement {
   return (
     <>
+      <section className="report-picker" aria-label="Backtest report selection">
+        <label htmlFor="report-select">Research report</label>
+        <select
+          id="report-select"
+          value={selectedReportId}
+          disabled={reportLoading}
+          onChange={(event) => void selectReport(event.target.value)}
+        >
+          <option value="sample">Bundled sample report</option>
+          {reportEntries.map((entry) => (
+            <option key={entry.id} value={entry.id}>
+              {entry.label} · {entry.strategies.join(", ")}
+            </option>
+          ))}
+        </select>
+        <span>{reportLoading ? "Loading…" : `${report.reportCount} strategy run(s)`}</span>
+      </section>
       <section className="summary-grid" aria-label="Report summary">
         <Metric label="Leader" value={leader?.strategyId ?? "n/a"} />
         <Metric label="Ending Equity" value={leader ? currency.format(leader.endingEquity) : "-"} />
