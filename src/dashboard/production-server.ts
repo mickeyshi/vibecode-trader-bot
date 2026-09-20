@@ -10,6 +10,7 @@ export interface DashboardServerConfig {
   staticRoot: string;
   reportsRoot: string;
   snapshotPath: string;
+  researchPath: string;
 }
 
 export function loadDashboardServerConfig(
@@ -27,7 +28,10 @@ export function loadDashboardServerConfig(
     port,
     staticRoot: resolve(environment.DASHBOARD_STATIC_ROOT ?? "dist-dashboard"),
     reportsRoot: resolve(environment.DASHBOARD_REPORTS_ROOT ?? "reports"),
-    snapshotPath: resolve(environment.DASHBOARD_SNAPSHOT_PATH ?? "reports/live-ops-snapshot.json")
+    snapshotPath: resolve(environment.DASHBOARD_SNAPSHOT_PATH ?? "reports/live-ops-snapshot.json"),
+    researchPath: resolve(
+      environment.DASHBOARD_RESEARCH_PATH ?? "reports/etf-momentum-research.json"
+    )
   };
 }
 
@@ -70,6 +74,10 @@ async function routeRequest(
   }
   if (path === "/live-ops-snapshot.json") {
     await serveJsonFile(response, config.snapshotPath, headOnly);
+    return;
+  }
+  if (path === "/api/research/etf-momentum") {
+    await serveJsonFile(response, config.researchPath, headOnly);
     return;
   }
   if (path === "/api/backtests") {

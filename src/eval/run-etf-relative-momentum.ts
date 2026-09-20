@@ -1,7 +1,10 @@
 import { DEFAULT_ETF_MOMENTUM_CONFIG, runEtfRelativeMomentum } from "./etf-relative-momentum.js";
 import { loadResearchDataset } from "./research-candle-loader.js";
+import { mkdir, writeFile } from "node:fs/promises";
+import { dirname } from "node:path";
 
 const path = process.argv[2] ?? "test-fixtures/data/alpaca-etf-daily.json";
+const outputPath = process.argv[3] ?? "reports/etf-momentum-research.json";
 const dataset = await loadResearchDataset(path);
 const candles = dataset.candles;
 
@@ -21,37 +24,34 @@ const results = configurations.map((configuration) => ({
   configuration,
   result: runEtfRelativeMomentum(candles, configuration)
 }));
-console.log(
-  JSON.stringify(
-    {
-      researchOnly: true,
-      dataProvenance: {
-        source: dataset.source,
-        adjustment: dataset.adjustment,
-        corporateActionAdjustments: dataset.corporateActionAdjustments,
-        requestedAt: dataset.requestedAt,
-        requestedRange: { from: dataset.from, to: dataset.to }
-      },
-      benchmarkDefinition: {
-        symbol: "SPY",
-        grossWeight: DEFAULT_ETF_MOMENTUM_CONFIG.maxGrossWeight,
-        residualAsset: "cash",
-        interpretation:
-          "Provider-adjusted SPY return proxy; not independently cross-validated against another total-return vendor."
-      },
-      methodology:
-        "Monthly selection uses only prior closes and executes at the next available open; adjusted Alpaca IEX daily bars; cash allowed; no news signal.",
-      limitations: [
-        "Available histories begin between 2018-11-01 and 2020-07-27, depending on symbol.",
-        "No taxes, market impact, borrow, intraday execution, or point-in-time constituent changes.",
-        "Delayed scenarios move each monthly rebalance by one or five common trading sessions.",
-        "The missed-rebalance scenario skips every third scheduled rebalance deterministically.",
-        "The cash-yield scenario applies a constant 4% annual yield and Sharpe hurdle, not a historical rate series.",
-        "Parameter variants are sensitivity checks, not independent out-of-sample proof."
-      ],
-      results
-    },
-    null,
-    2
-  )
-);
+const output = {
+  researchOnly: true,
+  dataProvenance: {
+    source: dataset.source,
+    adjustment: dataset.adjustment,
+    corporateActionAdjustments: dataset.corporateActionAdjustments,
+    requestedAt: dataset.requestedAt,
+    requestedRange: { from: dataset.from, to: dataset.to }
+  },
+  benchmarkDefinition: {
+    symbol: "SPY",
+    grossWeight: DEFAULT_ETF_MOMENTUM_CONFIG.maxGrossWeight,
+    residualAsset: "cash",
+    interpretation:
+      "Provider-adjusted SPY return proxy; not independently cross-validated against another total-return vendor."
+  },
+  methodology:
+    "Monthly selection uses only prior closes and executes at the next available open; adjusted Alpaca IEX daily bars; cash allowed; no news signal.",
+  limitations: [
+    "Available histories begin between 2018-11-01 and 2020-07-27, depending on symbol.",
+    "No taxes, market impact, borrow, intraday execution, or point-in-time constituent changes.",
+    "Delayed scenarios move each monthly rebalance by one or five common trading sessions.",
+    "The missed-rebalance scenario skips every third scheduled rebalance deterministically.",
+    "The cash-yield scenario applies a constant 4% annual yield and Sharpe hurdle, not a historical rate series.",
+    "Parameter variants are sensitivity checks, not independent out-of-sample proof."
+  ],
+  results
+};
+await mkdir(dirname(outputPath), { recursive: true });
+await writeFile(outputPath, `${JSON.stringify(output, null, 2)}\n`, "utf8");
+console.log(JSON.stringify({ outputPath, ...output }, null, 2));

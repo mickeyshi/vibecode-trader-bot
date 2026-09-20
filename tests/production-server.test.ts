@@ -32,12 +32,14 @@ describe("production dashboard server", () => {
     await mkdir(reportsRoot);
     await writeFile(join(staticRoot, "index.html"), "<h1>Trading</h1>");
     await writeFile(join(reportsRoot, "live.json"), '{"mode":"paper"}');
+    await writeFile(join(reportsRoot, "research.json"), '{"researchOnly":true}');
     const baseUrl = await listen({
       host: "127.0.0.1",
       port: 0,
       staticRoot,
       reportsRoot,
-      snapshotPath: join(reportsRoot, "live.json")
+      snapshotPath: join(reportsRoot, "live.json"),
+      researchPath: join(reportsRoot, "research.json")
     });
 
     const live = await fetch(`${baseUrl}/health/live`);
@@ -57,6 +59,11 @@ describe("production dashboard server", () => {
     expect(snapshot.status).toBe(200);
     expect(snapshot.headers.get("cache-control")).toBe("no-store");
     expect(await snapshot.json()).toEqual({ mode: "paper" });
+
+    const research = await fetch(`${baseUrl}/api/research/etf-momentum`);
+    expect(research.status).toBe(200);
+    expect(research.headers.get("cache-control")).toBe("no-store");
+    expect(await research.json()).toEqual({ researchOnly: true });
   });
 
   it("reports not-ready when the PWA build is absent", async () => {
@@ -68,7 +75,8 @@ describe("production dashboard server", () => {
       port: 0,
       staticRoot: join(root, "missing"),
       reportsRoot,
-      snapshotPath: join(reportsRoot, "missing.json")
+      snapshotPath: join(reportsRoot, "missing.json"),
+      researchPath: join(reportsRoot, "missing-research.json")
     });
     const response = await fetch(`${baseUrl}/health/ready`);
     expect(response.status).toBe(503);

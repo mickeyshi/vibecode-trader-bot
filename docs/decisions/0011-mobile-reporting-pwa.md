@@ -28,6 +28,8 @@ authenticated API, authorization, TLS, secrets management, and an explicit hosti
 ## Consequences
 
 - Mobile reporting can be developed and tested without enabling order entry.
+- The mobile Research view exposes generated strategy evidence and its non-promotion warning without
+  adding an execution control.
 - Offline mode can display the app shell but must identify unavailable or stale live data.
 - Native notifications, biometric authentication, and app-store distribution remain optional later
   stages rather than prerequisites for validating the reporting UX.

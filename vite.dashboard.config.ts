@@ -82,8 +82,45 @@ function backtestReportMiddleware() {
   };
 }
 
+function researchReportMiddleware() {
+  const serveResearch = async (
+    request: { url?: string },
+    response: {
+      statusCode: number;
+      setHeader(name: string, value: string): void;
+      end(body?: string): void;
+    },
+    next: () => void
+  ) => {
+    if (request.url?.split("?", 1)[0] !== "/api/research/etf-momentum") return next();
+    try {
+      const body = await readFile(resolve("reports/etf-momentum-research.json"), "utf8");
+      response.setHeader("Content-Type", "application/json; charset=utf-8");
+      response.setHeader("Cache-Control", "no-store");
+      response.end(body);
+    } catch {
+      response.statusCode = 404;
+      response.end();
+    }
+  };
+  return {
+    name: "etf-research-report",
+    configureServer(server: { middlewares: { use(handler: typeof serveResearch): void } }) {
+      server.middlewares.use(serveResearch);
+    },
+    configurePreviewServer(server: { middlewares: { use(handler: typeof serveResearch): void } }) {
+      server.middlewares.use(serveResearch);
+    }
+  };
+}
+
 export default defineConfig({
-  plugins: [react(), liveSnapshotMiddleware(), backtestReportMiddleware()],
+  plugins: [
+    react(),
+    liveSnapshotMiddleware(),
+    backtestReportMiddleware(),
+    researchReportMiddleware()
+  ],
   root: "src/dashboard/app",
   publicDir: "public",
   build: {

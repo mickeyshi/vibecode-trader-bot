@@ -31,6 +31,37 @@ const percent = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 0
 });
 
+interface EtfResearchReport {
+  dataProvenance: { source: string; adjustment: string; requestedAt: string };
+  benchmarkDefinition: { symbol: string; grossWeight: number; interpretation: string };
+  results: Array<{
+    configuration: {
+      momentumWindow: number;
+      trendWindow: number;
+      transactionCostBps: number;
+      rebalanceDelaySessions: number;
+      skipEveryNthRebalance: number;
+      cashAnnualYieldPct: number;
+    };
+    result: {
+      firstDate: string;
+      lastDate: string;
+      strategy: ResearchPerformance;
+      benchmark: ResearchPerformance;
+    };
+  }>;
+}
+
+interface ResearchPerformance {
+  totalReturnPct: number;
+  sharpeRatio: number;
+  maxDrawdownPct: number;
+  turnover: number;
+  annualReturnsPct: Record<string, number>;
+  symbolContributionPct: Record<string, number>;
+  regimeContributionPct: Record<string, number>;
+}
+
 export function App(): ReactElement {
   const [liveOps, setLiveOps] = useState<LiveOpsDashboardViewModel>(sampleLiveOpsDashboard);
   const [liveOpsSource, setLiveOpsSource] = useState<"sample" | "snapshot">("sample");
@@ -41,6 +72,7 @@ export function App(): ReactElement {
   const [reportEntries, setReportEntries] = useState<DashboardReportIndexEntry[]>([]);
   const [selectedReportId, setSelectedReportId] = useState("sample");
   const [reportLoading, setReportLoading] = useState(false);
+  const [research, setResearch] = useState<EtfResearchReport>();
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
@@ -83,6 +115,15 @@ export function App(): ReactElement {
       });
   }, []);
 
+  useEffect(() => {
+    fetch("/api/research/etf-momentum", { cache: "no-store" })
+      .then((response) => (response.ok ? response.json() : undefined))
+      .then((value: EtfResearchReport | undefined) => setResearch(value))
+      .catch(() => {
+        // The research view explains how to generate the artifact when unavailable.
+      });
+  }, []);
+
   const selectReport = useCallback(async (id: string) => {
     setSelectedReportId(id);
     if (id === "sample") {
@@ -106,6 +147,7 @@ export function App(): ReactElement {
       reportEntries={reportEntries}
       selectedReportId={selectedReportId}
       reportLoading={reportLoading}
+      research={research}
       selectReport={selectReport}
       online={online}
       refreshing={refreshing}
@@ -122,6 +164,7 @@ function Dashboard({
   reportEntries,
   selectedReportId,
   reportLoading,
+  research,
   selectReport,
   online,
   refreshing,
@@ -134,13 +177,16 @@ function Dashboard({
   reportEntries: DashboardReportIndexEntry[];
   selectedReportId: string;
   reportLoading: boolean;
+  research: EtfResearchReport | undefined;
   selectReport: (id: string) => Promise<void>;
   online: boolean;
   refreshing: boolean;
   lastRefresh: Date | undefined;
   refresh: () => Promise<void>;
 }): ReactElement {
-  const [activeView, setActiveView] = useState<"operations" | "backtests">("operations");
+  const [activeView, setActiveView] = useState<"operations" | "backtests" | "research">(
+    "operations"
+  );
   const leader = report.runs[0];
   const equityRows = mergeEquitySeries(report);
   const totalAlerts = report.runs.reduce((sum, run) => sum + run.alertCount, 0);
@@ -206,11 +252,18 @@ function Dashboard({
         >
           Backtests
         </button>
+        <button
+          className={activeView === "research" ? "active" : ""}
+          type="button"
+          onClick={() => setActiveView("research")}
+        >
+          Research
+        </button>
       </nav>
 
       {activeView === "operations" ? (
         <OperationsDashboard liveOps={liveOps} />
-      ) : (
+      ) : activeView === "backtests" ? (
         <BacktestDashboard
           equityRows={equityRows}
           leader={leader}
@@ -222,6 +275,8 @@ function Dashboard({
           totalAlerts={totalAlerts}
           totalRiskRejections={totalRiskRejections}
         />
+      ) : (
+        <ResearchDashboard research={research} />
       )}
     </main>
   );
@@ -645,6 +700,129 @@ function BacktestDashboard({
         </table>
       </section>
     </>
+  );
+}
+
+function ResearchDashboard({
+  research
+}: {
+  research: EtfResearchReport | undefined;
+}): ReactElement {
+  if (!research) {
+    return (
+      <section className="panel empty-state">
+        <h2>Research artifact unavailable</h2>
+        <p>Run `npm run research:etf-momentum` to generate the local read-only report.</p>
+      </section>
+    );
+  }
+  const base = research.results.find(
+    ({ configuration }) =>
+      configuration.momentumWindow === 126 &&
+      configuration.trendWindow === 200 &&
+      configuration.transactionCostBps === 10 &&
+      configuration.rebalanceDelaySessions === 0 &&
+      configuration.skipEveryNthRebalance === 0 &&
+      configuration.cashAnnualYieldPct === 0
+  )?.result;
+  if (!base) return <section className="panel empty-state">Base research case is missing.</section>;
+  const annualRows = Object.keys(base.strategy.annualReturnsPct);
+  return (
+    <>
+      <section className="research-banner">
+        <strong>Research only · not promoted for paper execution</strong>
+        <span>
+          {research.dataProvenance.source} · adjustment={research.dataProvenance.adjustment} ·
+          through {base.lastDate}
+        </span>
+      </section>
+      <section className="summary-grid" aria-label="ETF research summary">
+        <Metric
+          label="Strategy Return"
+          value={`${percent.format(base.strategy.totalReturnPct)}%`}
+        />
+        <Metric
+          label="Benchmark Return"
+          value={`${percent.format(base.benchmark.totalReturnPct)}%`}
+        />
+        <Metric
+          label="Strategy Drawdown"
+          value={`${percent.format(base.strategy.maxDrawdownPct)}%`}
+        />
+        <Metric
+          label="Benchmark Drawdown"
+          value={`${percent.format(base.benchmark.maxDrawdownPct)}%`}
+        />
+        <Metric label="Strategy Sharpe" value={percent.format(base.strategy.sharpeRatio)} />
+        <Metric label="Benchmark Sharpe" value={percent.format(base.benchmark.sharpeRatio)} />
+      </section>
+      <section className="layout">
+        <AttributionTable title="Symbol contribution" rows={base.strategy.symbolContributionPct} />
+        <AttributionTable title="Regime contribution" rows={base.strategy.regimeContributionPct} />
+      </section>
+      <section className="panel">
+        <div className="panel-heading">
+          <h2>Calendar-year return</h2>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Year</th>
+              <th>Strategy</th>
+              <th>Benchmark</th>
+              <th>Difference</th>
+            </tr>
+          </thead>
+          <tbody>
+            {annualRows.map((year) => {
+              const strategy = base.strategy.annualReturnsPct[year] ?? 0;
+              const benchmark = base.benchmark.annualReturnsPct[year] ?? 0;
+              return (
+                <tr key={year}>
+                  <td>{year}</td>
+                  <td>{percent.format(strategy)}%</td>
+                  <td>{percent.format(benchmark)}%</td>
+                  <td>{percent.format(strategy - benchmark)}%</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+        <p className="panel-note">{research.benchmarkDefinition.interpretation}</p>
+      </section>
+    </>
+  );
+}
+
+function AttributionTable({
+  title,
+  rows
+}: {
+  title: string;
+  rows: Record<string, number>;
+}): ReactElement {
+  return (
+    <div className="panel">
+      <div className="panel-heading">
+        <h2>{title}</h2>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>Bucket</th>
+            <th>Contribution</th>
+          </tr>
+        </thead>
+        <tbody>
+          {Object.entries(rows).map(([label, value]) => (
+            <tr key={label}>
+              <td>{label}</td>
+              <td>{percent.format(value)} pp</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
