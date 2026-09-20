@@ -8,12 +8,14 @@ import {
 export interface EtfMomentumConfig extends EtfMomentumAllocationConfig {
   transactionCostBps: number;
   rebalanceDelaySessions: number;
+  skipEveryNthRebalance: number;
 }
 
 export interface EtfMomentumResult {
   strategy: PerformanceSummary;
   benchmark: PerformanceSummary;
   rebalanceCount: number;
+  missedRebalanceCount: number;
   firstDate: string;
   lastDate: string;
 }
@@ -31,7 +33,8 @@ export interface PerformanceSummary {
 export const DEFAULT_ETF_MOMENTUM_CONFIG: EtfMomentumConfig = {
   ...DEFAULT_ETF_MOMENTUM_ALLOCATION_CONFIG,
   transactionCostBps: 10,
-  rebalanceDelaySessions: 0
+  rebalanceDelaySessions: 0,
+  skipEveryNthRebalance: 0
 };
 
 export function runEtfRelativeMomentum(
@@ -55,6 +58,7 @@ export function runEtfRelativeMomentum(
     strategy: summarize(strategy.equity, strategy.turnover, startingEquity, evaluationStartDate),
     benchmark: summarize(benchmark.equity, benchmark.turnover, startingEquity, evaluationStartDate),
     rebalanceCount: strategy.rebalanceCount,
+    missedRebalanceCount: strategy.missedRebalanceCount,
     firstDate: dates[0]!,
     lastDate: dates.at(-1)!
   };
@@ -70,10 +74,13 @@ function simulate(
   equity: { date: string; value: number }[];
   turnover: { date: string; value: number }[];
   rebalanceCount: number;
+  missedRebalanceCount: number;
 } {
   let cash = startingEquity;
   const turnover: { date: string; value: number }[] = [];
   let rebalanceCount = 0;
+  let missedRebalanceCount = 0;
+  let scheduledRebalanceCount = 0;
   let activeMonth = "";
   let sessionInMonth = 0;
   const shares = new Map<string, number>();
@@ -89,32 +96,40 @@ function simulate(
       sessionInMonth = 0;
     }
     if (sessionInMonth === config.rebalanceDelaySessions) {
-      const prices = new Map(bars.map((bar) => [bar.symbol, bar.open]));
-      const currentEquity = portfolioValue(cash, shares, prices);
-      const warmedUp = [...histories.values()].every(
-        (history) => history.length >= Math.max(config.trendWindow, config.momentumWindow)
-      );
-      const targets = !warmedUp
-        ? new Map<string, number>()
-        : benchmark
-          ? new Map(prices.has("SPY") ? [["SPY", config.maxGrossWeight]] : [])
-          : new Map(
-              allocator
-                .allocate({ closeHistoryBySymbol: histories })
-                .targets.map((target) => [target.symbol, target.targetWeight])
-            );
-      for (const symbol of new Set([...shares.keys(), ...targets.keys()])) {
-        const price = prices.get(symbol);
-        if (!price) continue;
-        const desiredValue = currentEquity * (targets.get(symbol) ?? 0);
-        const currentValue = (shares.get(symbol) ?? 0) * price;
-        const tradedValue = Math.abs(desiredValue - currentValue);
-        const cost = tradedValue * (config.transactionCostBps / 10_000);
-        cash += currentValue - desiredValue - cost;
-        shares.set(symbol, desiredValue / price);
-        turnover.push({ date, value: tradedValue / currentEquity });
+      scheduledRebalanceCount += 1;
+      const skip =
+        config.skipEveryNthRebalance > 0 &&
+        scheduledRebalanceCount % config.skipEveryNthRebalance === 0;
+      if (skip) {
+        missedRebalanceCount += 1;
+      } else {
+        const prices = new Map(bars.map((bar) => [bar.symbol, bar.open]));
+        const currentEquity = portfolioValue(cash, shares, prices);
+        const warmedUp = [...histories.values()].every(
+          (history) => history.length >= Math.max(config.trendWindow, config.momentumWindow)
+        );
+        const targets = !warmedUp
+          ? new Map<string, number>()
+          : benchmark
+            ? new Map(prices.has("SPY") ? [["SPY", config.maxGrossWeight]] : [])
+            : new Map(
+                allocator
+                  .allocate({ closeHistoryBySymbol: histories })
+                  .targets.map((target) => [target.symbol, target.targetWeight])
+              );
+        for (const symbol of new Set([...shares.keys(), ...targets.keys()])) {
+          const price = prices.get(symbol);
+          if (!price) continue;
+          const desiredValue = currentEquity * (targets.get(symbol) ?? 0);
+          const currentValue = (shares.get(symbol) ?? 0) * price;
+          const tradedValue = Math.abs(desiredValue - currentValue);
+          const cost = tradedValue * (config.transactionCostBps / 10_000);
+          cash += currentValue - desiredValue - cost;
+          shares.set(symbol, desiredValue / price);
+          turnover.push({ date, value: tradedValue / currentEquity });
+        }
+        rebalanceCount += 1;
       }
-      rebalanceCount += 1;
     }
 
     const closePrices = new Map(bars.map((bar) => [bar.symbol, bar.close]));
@@ -126,7 +141,7 @@ function simulate(
     }
     sessionInMonth += 1;
   }
-  return { equity, turnover, rebalanceCount };
+  return { equity, turnover, rebalanceCount, missedRebalanceCount };
 }
 
 function summarize(
@@ -214,6 +229,9 @@ function validateConfig(config: EtfMomentumConfig): void {
   }
   if (!Number.isInteger(config.rebalanceDelaySessions) || config.rebalanceDelaySessions < 0) {
     throw new Error("Rebalance delay must be a non-negative integer.");
+  }
+  if (!Number.isInteger(config.skipEveryNthRebalance) || config.skipEveryNthRebalance < 0) {
+    throw new Error("Skipped-rebalance interval must be a non-negative integer.");
   }
 }
 

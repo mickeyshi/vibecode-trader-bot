@@ -62,6 +62,27 @@ describe("ETF relative momentum research simulation", () => {
       ).toThrow("Rebalance delay");
     }
   });
+
+  it("tracks deterministically missed rebalances", () => {
+    const result = runEtfRelativeMomentum(trendingCandles(420), {
+      ...DEFAULT_ETF_MOMENTUM_CONFIG,
+      skipEveryNthRebalance: 3
+    });
+    expect(result.missedRebalanceCount).toBeGreaterThan(0);
+    expect(result.rebalanceCount).toBeGreaterThan(result.missedRebalanceCount);
+  });
+
+  it("rejects a negative or fractional skipped-rebalance interval", () => {
+    const candles = trendingCandles(320);
+    for (const skipEveryNthRebalance of [-1, 1.5]) {
+      expect(() =>
+        runEtfRelativeMomentum(candles, {
+          ...DEFAULT_ETF_MOMENTUM_CONFIG,
+          skipEveryNthRebalance
+        })
+      ).toThrow("Skipped-rebalance interval");
+    }
+  });
 });
 
 function trendingCandles(days: number): Candle[] {
