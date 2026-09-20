@@ -17,6 +17,10 @@ import type {
 } from "../../live-ops-view-model.js";
 import type { DashboardReportIndexEntry } from "../../report-index.js";
 import type { DashboardReportViewModel, DashboardRunSummary } from "../../report-view-model.js";
+import {
+  buildEtfResearchViewModel,
+  type EtfResearchViewModel
+} from "../../etf-research-view-model.js";
 import { sampleLiveOpsDashboard } from "./sample-live-ops.js";
 import { sampleDashboardReport } from "./sample-report.js";
 
@@ -31,37 +35,6 @@ const percent = new Intl.NumberFormat("en-US", {
   minimumFractionDigits: 0
 });
 
-interface EtfResearchReport {
-  dataProvenance: { source: string; adjustment: string; requestedAt: string };
-  benchmarkDefinition: { symbol: string; grossWeight: number; interpretation: string };
-  results: Array<{
-    configuration: {
-      momentumWindow: number;
-      trendWindow: number;
-      transactionCostBps: number;
-      rebalanceDelaySessions: number;
-      skipEveryNthRebalance: number;
-      cashAnnualYieldPct: number;
-    };
-    result: {
-      firstDate: string;
-      lastDate: string;
-      strategy: ResearchPerformance;
-      benchmark: ResearchPerformance;
-    };
-  }>;
-}
-
-interface ResearchPerformance {
-  totalReturnPct: number;
-  sharpeRatio: number;
-  maxDrawdownPct: number;
-  turnover: number;
-  annualReturnsPct: Record<string, number>;
-  symbolContributionPct: Record<string, number>;
-  regimeContributionPct: Record<string, number>;
-}
-
 export function App(): ReactElement {
   const [liveOps, setLiveOps] = useState<LiveOpsDashboardViewModel>(sampleLiveOpsDashboard);
   const [liveOpsSource, setLiveOpsSource] = useState<"sample" | "snapshot">("sample");
@@ -72,7 +45,7 @@ export function App(): ReactElement {
   const [reportEntries, setReportEntries] = useState<DashboardReportIndexEntry[]>([]);
   const [selectedReportId, setSelectedReportId] = useState("sample");
   const [reportLoading, setReportLoading] = useState(false);
-  const [research, setResearch] = useState<EtfResearchReport>();
+  const [research, setResearch] = useState<EtfResearchViewModel>();
 
   const refresh = useCallback(async () => {
     setRefreshing(true);
@@ -118,7 +91,9 @@ export function App(): ReactElement {
   useEffect(() => {
     fetch("/api/research/etf-momentum", { cache: "no-store" })
       .then((response) => (response.ok ? response.json() : undefined))
-      .then((value: EtfResearchReport | undefined) => setResearch(value))
+      .then((value: unknown) => {
+        if (value !== undefined) setResearch(buildEtfResearchViewModel(value));
+      })
       .catch(() => {
         // The research view explains how to generate the artifact when unavailable.
       });
@@ -177,7 +152,7 @@ function Dashboard({
   reportEntries: DashboardReportIndexEntry[];
   selectedReportId: string;
   reportLoading: boolean;
-  research: EtfResearchReport | undefined;
+  research: EtfResearchViewModel | undefined;
   selectReport: (id: string) => Promise<void>;
   online: boolean;
   refreshing: boolean;
@@ -706,7 +681,7 @@ function BacktestDashboard({
 function ResearchDashboard({
   research
 }: {
-  research: EtfResearchReport | undefined;
+  research: EtfResearchViewModel | undefined;
 }): ReactElement {
   const [scenarioIndex, setScenarioIndex] = useState(0);
   if (!research) {
@@ -811,7 +786,7 @@ function ResearchDashboard({
 }
 
 function scenarioLabel(
-  configuration: EtfResearchReport["results"][number]["configuration"],
+  configuration: EtfResearchViewModel["results"][number]["configuration"],
   index: number
 ): string {
   if (index === 0) return "Base · 126/200 windows · 10 bps";
