@@ -28,6 +28,7 @@ export interface PerformanceSummary {
   sharpeRatio: number;
   maxDrawdownPct: number;
   turnover: number;
+  annualReturnsPct: Record<string, number>;
 }
 
 export const DEFAULT_ETF_MOMENTUM_CONFIG: EtfMomentumConfig = {
@@ -179,8 +180,30 @@ function summarize(
       turnoverEntries
         .filter((entry) => !evaluationStartDate || entry.date >= evaluationStartDate)
         .reduce((sum, entry) => sum + entry.value, 0)
-    )
+    ),
+    annualReturnsPct: annualReturns(equity, baselineEquity)
   };
+}
+
+function annualReturns(
+  equity: { date: string; value: number }[],
+  initialBaseline: number
+): Record<string, number> {
+  const result: Record<string, number> = {};
+  let baseline = initialBaseline;
+  let activeYear = equity[0]!.date.slice(0, 4);
+  let lastValue = baseline;
+  for (const point of equity) {
+    const year = point.date.slice(0, 4);
+    if (year !== activeYear) {
+      result[activeYear] = round((lastValue / baseline - 1) * 100);
+      baseline = lastValue;
+      activeYear = year;
+    }
+    lastValue = point.value;
+  }
+  result[activeYear] = round((lastValue / baseline - 1) * 100);
+  return result;
 }
 
 function groupByDate(candles: Candle[]): Map<string, Candle[]> {

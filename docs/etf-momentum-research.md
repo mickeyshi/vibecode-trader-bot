@@ -56,6 +56,12 @@ with 9.81% maximum drawdown and 15.99 times cumulative turnover, versus 47.88%, 
 times for the base case. The lower turnover reduced both trading and responsiveness; the result does
 not establish that intentionally missing trades is beneficial.
 
+Calendar-year attribution exposes the defensive tradeoff. The base strategy lost 8.39% in 2022
+while the benchmark lost 14.47%, but then returned only 7.46% in 2023 versus the benchmark's 20.64%.
+It returned 14.99% versus 19.57% in 2024 and 17.70% versus 14.04% in 2025. The 2020 warm-up and 2026
+partial-year rows are not comparable full calendar years. Aggregate return therefore masks both
+downside protection and substantial upside participation gaps.
+
 ## Promotion gates
 
 Before coordinator integration:
@@ -63,8 +69,8 @@ Before coordinator integration:
 1. Obtain at least 10 years of point-in-time history or explicitly accept the shorter evidence.
 2. Add rolling out-of-sample evaluation with frozen parameter selection.
 3. Include a positive risk-free cash return and total-return benchmark validation.
-4. Attribute returns by symbol, regime, and year. Delayed and deterministically missed rebalances
-   are now tested.
+4. Attribute returns by symbol and regime. Calendar-year returns plus delayed and deterministically
+   missed rebalances are now reported.
 5. Add a portfolio-allocation boundary; do not force cross-symbol ranking into the per-symbol
    `Strategy` interface.
 6. Add news only as a separately tested event veto, with publication timestamps and duplicate-story

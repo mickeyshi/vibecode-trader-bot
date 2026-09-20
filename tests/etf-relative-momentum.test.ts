@@ -33,6 +33,7 @@ describe("ETF relative momentum research simulation", () => {
     expect(result.rebalanceCount).toBeGreaterThan(5);
     expect(result.strategy.endingEquity).toBeGreaterThan(100_000);
     expect(result.strategy.maxDrawdownPct).toBeGreaterThanOrEqual(0);
+    expect(Object.keys(result.strategy.annualReturnsPct)).toEqual(["2024"]);
   });
 
   it("refuses insufficient history", () => {
@@ -70,6 +71,17 @@ describe("ETF relative momentum research simulation", () => {
     });
     expect(result.missedRebalanceCount).toBeGreaterThan(0);
     expect(result.rebalanceCount).toBeGreaterThan(result.missedRebalanceCount);
+  });
+
+  it("attributes returns to calendar years using the prior year-end baseline", () => {
+    const result = runEtfRelativeMomentum(trendingCandles(800), {
+      ...DEFAULT_ETF_MOMENTUM_CONFIG,
+      momentumWindow: 20,
+      trendWindow: 30
+    });
+    expect(Object.keys(result.strategy.annualReturnsPct)).toEqual(["2022", "2023", "2024"]);
+    expect(Object.values(result.strategy.annualReturnsPct).every(Number.isFinite)).toBe(true);
+    expect(Object.keys(result.benchmark.annualReturnsPct)).toEqual(["2022", "2023", "2024"]);
   });
 
   it("rejects a negative or fractional skipped-rebalance interval", () => {
