@@ -708,6 +708,7 @@ function ResearchDashboard({
 }: {
   research: EtfResearchReport | undefined;
 }): ReactElement {
+  const [scenarioIndex, setScenarioIndex] = useState(0);
   if (!research) {
     return (
       <section className="panel empty-state">
@@ -716,49 +717,64 @@ function ResearchDashboard({
       </section>
     );
   }
-  const base = research.results.find(
-    ({ configuration }) =>
-      configuration.momentumWindow === 126 &&
-      configuration.trendWindow === 200 &&
-      configuration.transactionCostBps === 10 &&
-      configuration.rebalanceDelaySessions === 0 &&
-      configuration.skipEveryNthRebalance === 0 &&
-      configuration.cashAnnualYieldPct === 0
-  )?.result;
-  if (!base) return <section className="panel empty-state">Base research case is missing.</section>;
-  const annualRows = Object.keys(base.strategy.annualReturnsPct);
+  const selected = research.results[scenarioIndex] ?? research.results[0];
+  if (!selected)
+    return <section className="panel empty-state">Research scenarios are missing.</section>;
+  const result = selected.result;
+  const annualRows = Object.keys(result.strategy.annualReturnsPct);
   return (
     <>
       <section className="research-banner">
         <strong>Research only · not promoted for paper execution</strong>
         <span>
           {research.dataProvenance.source} · adjustment={research.dataProvenance.adjustment} ·
-          through {base.lastDate}
+          through {result.lastDate}
         </span>
+      </section>
+      <section className="report-picker" aria-label="Research scenario selection">
+        <label htmlFor="research-scenario">Scenario</label>
+        <select
+          id="research-scenario"
+          value={scenarioIndex}
+          onChange={(event) => setScenarioIndex(Number(event.target.value))}
+        >
+          {research.results.map(({ configuration }, index) => (
+            <option key={scenarioLabel(configuration, index)} value={index}>
+              {scenarioLabel(configuration, index)}
+            </option>
+          ))}
+        </select>
+        <span>{research.results.length} validated scenarios</span>
       </section>
       <section className="summary-grid" aria-label="ETF research summary">
         <Metric
           label="Strategy Return"
-          value={`${percent.format(base.strategy.totalReturnPct)}%`}
+          value={`${percent.format(result.strategy.totalReturnPct)}%`}
         />
         <Metric
           label="Benchmark Return"
-          value={`${percent.format(base.benchmark.totalReturnPct)}%`}
+          value={`${percent.format(result.benchmark.totalReturnPct)}%`}
         />
         <Metric
           label="Strategy Drawdown"
-          value={`${percent.format(base.strategy.maxDrawdownPct)}%`}
+          value={`${percent.format(result.strategy.maxDrawdownPct)}%`}
         />
         <Metric
           label="Benchmark Drawdown"
-          value={`${percent.format(base.benchmark.maxDrawdownPct)}%`}
+          value={`${percent.format(result.benchmark.maxDrawdownPct)}%`}
         />
-        <Metric label="Strategy Sharpe" value={percent.format(base.strategy.sharpeRatio)} />
-        <Metric label="Benchmark Sharpe" value={percent.format(base.benchmark.sharpeRatio)} />
+        <Metric label="Strategy Sharpe" value={percent.format(result.strategy.sharpeRatio)} />
+        <Metric label="Benchmark Sharpe" value={percent.format(result.benchmark.sharpeRatio)} />
       </section>
       <section className="layout">
-        <AttributionTable title="Symbol contribution" rows={base.strategy.symbolContributionPct} />
-        <AttributionTable title="Regime contribution" rows={base.strategy.regimeContributionPct} />
+        <AttributionTable
+          title="Symbol contribution"
+          rows={result.strategy.symbolContributionPct}
+        />
+        <AttributionTable
+          title="Regime contribution"
+          rows={result.strategy.regimeContributionPct}
+        />
       </section>
       <section className="panel">
         <div className="panel-heading">
@@ -775,8 +791,8 @@ function ResearchDashboard({
           </thead>
           <tbody>
             {annualRows.map((year) => {
-              const strategy = base.strategy.annualReturnsPct[year] ?? 0;
-              const benchmark = base.benchmark.annualReturnsPct[year] ?? 0;
+              const strategy = result.strategy.annualReturnsPct[year] ?? 0;
+              const benchmark = result.benchmark.annualReturnsPct[year] ?? 0;
               return (
                 <tr key={year}>
                   <td>{year}</td>
@@ -792,6 +808,26 @@ function ResearchDashboard({
       </section>
     </>
   );
+}
+
+function scenarioLabel(
+  configuration: EtfResearchReport["results"][number]["configuration"],
+  index: number
+): string {
+  if (index === 0) return "Base · 126/200 windows · 10 bps";
+  if (configuration.transactionCostBps !== 10) {
+    return `Cost stress · ${configuration.transactionCostBps} bps`;
+  }
+  if (configuration.rebalanceDelaySessions > 0) {
+    return `Execution delay · ${configuration.rebalanceDelaySessions} session(s)`;
+  }
+  if (configuration.skipEveryNthRebalance > 0) {
+    return `Missed execution · every ${configuration.skipEveryNthRebalance}rd rebalance`;
+  }
+  if (configuration.cashAnnualYieldPct > 0) {
+    return `Cash yield · ${configuration.cashAnnualYieldPct}% annual`;
+  }
+  return `Parameter sensitivity · ${configuration.momentumWindow}/${configuration.trendWindow} windows`;
 }
 
 function AttributionTable({
