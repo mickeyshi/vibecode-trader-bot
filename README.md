@@ -143,6 +143,18 @@ npm run dashboard:build
 npm run dashboard:preview -- --host 127.0.0.1
 ```
 
+For a production-like local check, build and run the dependency-free read-only server. It exposes
+`/health/live` and `/health/ready`, serves the PWA and report APIs, and defaults to loopback:
+
+```powershell
+npm run dashboard:build
+npm run dashboard:serve
+```
+
+The production server deliberately refuses `0.0.0.0` and other non-loopback binds until the
+authentication boundary proposed in ADR 0012 is selected and implemented. Do not use the Vite
+preview server as public hosting.
+
 The app displays connection, snapshot freshness, and last-sync state. Its service worker caches the
 application shell but deliberately excludes `live-ops-snapshot.json`. Android installation from a
 different device requires an HTTPS-hosted endpoint; do not expose the local report server to a

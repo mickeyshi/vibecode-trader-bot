@@ -9,6 +9,7 @@
     "dashboard:build": "vite build --config vite.dashboard.config.ts",
     "dashboard:dev": "vite --config vite.dashboard.config.ts",
     "dashboard:preview": "vite preview --config vite.dashboard.config.ts",
+    "dashboard:serve": "tsx src/dashboard/run-production-server.ts",
     "typecheck": "tsc --noEmit",
     "typecheck:dashboard": "tsc -p tsconfig.dashboard.json --noEmit",
     "test": "vitest run --passWithNoTests",

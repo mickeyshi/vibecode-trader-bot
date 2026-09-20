@@ -8,6 +8,7 @@ export * from "./dashboard/report-loader.js";
 export * from "./dashboard/report-view-model.js";
 export * from "./dashboard/live-ops-snapshot.js";
 export * from "./dashboard/live-ops-view-model.js";
+export * from "./dashboard/production-server.js";
 export * from "./eval/interfaces.js";
 export * from "./eval/backtest-cli.js";
 export * from "./eval/candle-replay-engine.js";
