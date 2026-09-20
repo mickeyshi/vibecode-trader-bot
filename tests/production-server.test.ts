@@ -28,16 +28,37 @@ describe("production dashboard server", () => {
     const root = await mkdtemp(join(tmpdir(), "dashboard-server-"));
     const staticRoot = join(root, "static");
     const reportsRoot = join(root, "reports");
+    const historyDir = join(reportsRoot, "live-ops-history");
     await mkdir(staticRoot);
     await mkdir(reportsRoot);
+    await mkdir(historyDir);
     await writeFile(join(staticRoot, "index.html"), "<h1>Trading</h1>");
     await writeFile(join(reportsRoot, "live.json"), '{"mode":"paper"}');
     await writeFile(join(reportsRoot, "research.json"), '{"researchOnly":true}');
+    await writeFile(
+      join(historyDir, "2026-09-20T12-00-00.000Z.json"),
+      JSON.stringify({
+        updatedAt: "2026-09-20T12:00:00Z",
+        headlineStatus: "ready",
+        executable: true,
+        account: {
+          equity: 100001,
+          dayRealizedPnl: 1,
+          dayUnrealizedPnl: 0,
+          grossExposure: 25
+        },
+        positions: [{}],
+        orders: [],
+        paperCycles: [{}],
+        paperRun: { dryRun: true, executionCount: 0 }
+      })
+    );
     const baseUrl = await listen({
       host: "127.0.0.1",
       port: 0,
       staticRoot,
       reportsRoot,
+      historyDir,
       snapshotPath: join(reportsRoot, "live.json"),
       researchPath: join(reportsRoot, "research.json")
     });
@@ -64,6 +85,15 @@ describe("production dashboard server", () => {
     expect(research.status).toBe(200);
     expect(research.headers.get("cache-control")).toBe("no-store");
     expect(await research.json()).toEqual({ researchOnly: true });
+
+    const history = await fetch(`${baseUrl}/api/operations/history`);
+    expect(history.status).toBe(200);
+    expect(history.headers.get("cache-control")).toBe("no-store");
+    expect(await history.json()).toMatchObject({
+      totalAvailable: 1,
+      invalidFileCount: 0,
+      entries: [{ equity: 100001, positionCount: 1, decisionCount: 1, dryRun: true }]
+    });
   });
 
   it("reports not-ready when the PWA build is absent", async () => {
@@ -75,6 +105,7 @@ describe("production dashboard server", () => {
       port: 0,
       staticRoot: join(root, "missing"),
       reportsRoot,
+      historyDir: join(reportsRoot, "live-ops-history"),
       snapshotPath: join(reportsRoot, "missing.json"),
       researchPath: join(reportsRoot, "missing-research.json")
     });

@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type Server, type ServerResponse } 
 import { access, readFile } from "node:fs/promises";
 import { constants } from "node:fs";
 import { extname, resolve, sep } from "node:path";
+import { buildLiveOpsHistoryViewModel } from "./live-ops-history-view-model.js";
 import { buildDashboardReportIndex, loadIndexedDashboardReport } from "./report-index.js";
 
 export interface DashboardServerConfig {
@@ -9,6 +10,7 @@ export interface DashboardServerConfig {
   port: number;
   staticRoot: string;
   reportsRoot: string;
+  historyDir: string;
   snapshotPath: string;
   researchPath: string;
 }
@@ -28,6 +30,7 @@ export function loadDashboardServerConfig(
     port,
     staticRoot: resolve(environment.DASHBOARD_STATIC_ROOT ?? "dist-dashboard"),
     reportsRoot: resolve(environment.DASHBOARD_REPORTS_ROOT ?? "reports"),
+    historyDir: resolve(environment.DASHBOARD_HISTORY_DIR ?? "reports/live-ops-history"),
     snapshotPath: resolve(environment.DASHBOARD_SNAPSHOT_PATH ?? "reports/live-ops-snapshot.json"),
     researchPath: resolve(
       environment.DASHBOARD_RESEARCH_PATH ?? "reports/etf-momentum-research.json"
@@ -82,6 +85,10 @@ async function routeRequest(
   }
   if (path === "/api/backtests") {
     json(response, 200, await buildDashboardReportIndex(config.reportsRoot), headOnly);
+    return;
+  }
+  if (path === "/api/operations/history") {
+    json(response, 200, await buildLiveOpsHistoryViewModel(config.historyDir), headOnly);
     return;
   }
   const reportId = path.match(/^\/api\/backtests\/([a-f0-9]{16})$/)?.[1];

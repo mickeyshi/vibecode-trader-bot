@@ -164,8 +164,9 @@ never includes credential values.
 npm run deployment:preflight
 ```
 
-The app displays connection, snapshot freshness, and last-sync state. Its service worker caches the
-application shell but deliberately excludes `live-ops-snapshot.json`. Android installation from a
+The app displays connection, snapshot freshness, last-sync state, and a bounded run-history equity
+timeline from validated snapshots under `reports/live-ops-history`. Its service worker caches the
+application shell but deliberately excludes live account and history APIs. Android installation from a
 different device requires an HTTPS-hosted endpoint; do not expose the local report server to a
 network or the internet until authentication, authorization, TLS, and deployment ownership have
 been selected and reviewed.

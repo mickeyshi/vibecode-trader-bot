@@ -1,6 +1,6 @@
 /* global self, caches, URL, fetch */
 
-const CACHE = "trader-ops-shell-v1";
+const CACHE = "trader-ops-shell-v2";
 const SHELL = ["/", "/app.webmanifest", "/app-icon.svg"];
 
 self.addEventListener("install", (event) => {
@@ -21,7 +21,7 @@ self.addEventListener("activate", (event) => {
 
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
-  if (url.pathname === "/live-ops-snapshot.json") return;
+  if (url.pathname === "/live-ops-snapshot.json" || url.pathname.startsWith("/api/")) return;
   if (event.request.mode === "navigate") {
     event.respondWith(fetch(event.request).catch(() => caches.match("/")));
     return;

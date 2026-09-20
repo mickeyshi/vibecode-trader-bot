@@ -97,11 +97,13 @@ submitting production scheduler.
 
 ### Dashboard and Audit
 
-The local Vite/React dashboard has Operations and Backtests views. Operations loads
+The local Vite/React dashboard has Operations, Backtests, and Research views. Operations loads
 `reports/live-ops-snapshot.json` when available and shows account state, break-even status,
 readiness gates, controls, risk limits, paper-run summaries, paper decisions, positions, and orders.
-It falls back to bundled sample data when no snapshot is available. Operations refreshes every 30
-seconds and labels sample, current, and stale data explicitly.
+It also loads a bounded, validated history index for an equity timeline and latest-run summary,
+excluding malformed history files. It falls back to bundled sample data when no snapshot is
+available. Operations refreshes every 30 seconds and labels sample, current, and stale data
+explicitly.
 
 The Backtests view indexes locally generated JSON backtest reports and lets the operator select a
 normalized report, while retaining bundled sample data as a fallback. Invalid reports and unrelated

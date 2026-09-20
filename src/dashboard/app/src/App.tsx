@@ -15,6 +15,7 @@ import type {
   LiveOpsReadinessStatus,
   LiveOpsRiskLimit
 } from "../../live-ops-view-model.js";
+import type { LiveOpsHistoryViewModel } from "../../live-ops-history-view-model.js";
 import type { DashboardReportIndexEntry } from "../../report-index.js";
 import type { DashboardReportViewModel, DashboardRunSummary } from "../../report-view-model.js";
 import {
@@ -41,6 +42,7 @@ export function App(): ReactElement {
   const [online, setOnline] = useState(navigator.onLine);
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefresh, setLastRefresh] = useState<Date>();
+  const [operationsHistory, setOperationsHistory] = useState<LiveOpsHistoryViewModel>();
   const [report, setReport] = useState<DashboardReportViewModel>(sampleDashboardReport);
   const [reportEntries, setReportEntries] = useState<DashboardReportIndexEntry[]>([]);
   const [selectedReportId, setSelectedReportId] = useState("sample");
@@ -50,11 +52,18 @@ export function App(): ReactElement {
   const refresh = useCallback(async () => {
     setRefreshing(true);
     try {
-      const response = await fetch("/live-ops-snapshot.json", { cache: "no-store" });
-      if (!response.ok) return;
-      setLiveOps((await response.json()) as LiveOpsDashboardViewModel);
-      setLiveOpsSource("snapshot");
-      setLastRefresh(new Date());
+      const [snapshotResponse, historyResponse] = await Promise.all([
+        fetch("/live-ops-snapshot.json", { cache: "no-store" }),
+        fetch("/api/operations/history", { cache: "no-store" })
+      ]);
+      if (snapshotResponse.ok) {
+        setLiveOps((await snapshotResponse.json()) as LiveOpsDashboardViewModel);
+        setLiveOpsSource("snapshot");
+        setLastRefresh(new Date());
+      }
+      if (historyResponse.ok) {
+        setOperationsHistory((await historyResponse.json()) as LiveOpsHistoryViewModel);
+      }
     } catch {
       // The last snapshot remains visible when the mobile client temporarily loses connectivity.
     } finally {
@@ -123,6 +132,7 @@ export function App(): ReactElement {
       selectedReportId={selectedReportId}
       reportLoading={reportLoading}
       research={research}
+      operationsHistory={operationsHistory}
       selectReport={selectReport}
       online={online}
       refreshing={refreshing}
@@ -140,6 +150,7 @@ function Dashboard({
   selectedReportId,
   reportLoading,
   research,
+  operationsHistory,
   selectReport,
   online,
   refreshing,
@@ -153,6 +164,7 @@ function Dashboard({
   selectedReportId: string;
   reportLoading: boolean;
   research: EtfResearchViewModel | undefined;
+  operationsHistory: LiveOpsHistoryViewModel | undefined;
   selectReport: (id: string) => Promise<void>;
   online: boolean;
   refreshing: boolean;
@@ -237,7 +249,7 @@ function Dashboard({
       </nav>
 
       {activeView === "operations" ? (
-        <OperationsDashboard liveOps={liveOps} />
+        <OperationsDashboard liveOps={liveOps} history={operationsHistory} />
       ) : activeView === "backtests" ? (
         <BacktestDashboard
           equityRows={equityRows}
@@ -257,7 +269,13 @@ function Dashboard({
   );
 }
 
-function OperationsDashboard({ liveOps }: { liveOps: LiveOpsDashboardViewModel }): ReactElement {
+function OperationsDashboard({
+  liveOps,
+  history
+}: {
+  liveOps: LiveOpsDashboardViewModel;
+  history: LiveOpsHistoryViewModel | undefined;
+}): ReactElement {
   return (
     <>
       <section className="summary-grid operations-summary" aria-label="Live account summary">
@@ -370,6 +388,8 @@ function OperationsDashboard({ liveOps }: { liveOps: LiveOpsDashboardViewModel }
         </section>
       ) : null}
 
+      <OperationsHistoryPanel history={history} />
+
       {liveOps.paperCycles && liveOps.paperCycles.length > 0 ? (
         <section className="panel">
           <div className="panel-heading">
@@ -458,6 +478,79 @@ function OperationsDashboard({ liveOps }: { liveOps: LiveOpsDashboardViewModel }
         </div>
       </section>
     </>
+  );
+}
+
+function OperationsHistoryPanel({
+  history
+}: {
+  history: LiveOpsHistoryViewModel | undefined;
+}): ReactElement {
+  if (!history || history.entries.length === 0) {
+    return (
+      <section className="panel history-panel">
+        <div className="panel-heading">
+          <h2>Run History</h2>
+        </div>
+        <div className="empty-state">
+          <p>No retained coordinator history is available yet.</p>
+        </div>
+      </section>
+    );
+  }
+  const latest = history.entries.at(-1)!;
+  return (
+    <section className="panel history-panel">
+      <div className="panel-heading">
+        <h2>Run History</h2>
+        <span className="panel-note">
+          {history.entries.length} of {history.totalAvailable} retained runs
+        </span>
+      </div>
+      <div className="history-chart" aria-label="Equity across retained coordinator runs">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={history.entries} margin={{ top: 12, right: 18, bottom: 8, left: 8 }}>
+            <CartesianGrid strokeDasharray="3 3" />
+            <XAxis
+              dataKey="timestamp"
+              tickFormatter={(value) => new Date(value).toLocaleDateString()}
+            />
+            <YAxis
+              domain={["auto", "auto"]}
+              tickFormatter={(value) => currency.format(Number(value))}
+            />
+            <Tooltip
+              labelFormatter={(value) => new Date(String(value)).toLocaleString()}
+              formatter={(value) => [currency.format(Number(value)), "Equity"]}
+            />
+            <Line type="monotone" dataKey="equity" stroke="#0f766e" strokeWidth={2} dot={false} />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+      <div className="history-latest">
+        <div>
+          <span>Latest status</span>
+          <StatusPill status={latest.status} label={latest.status} />
+        </div>
+        <div>
+          <span>Day P/L</span>
+          <strong>{currency.format(latest.dayPnl)}</strong>
+        </div>
+        <div>
+          <span>Exposure</span>
+          <strong>{currency.format(latest.grossExposure)}</strong>
+        </div>
+        <div>
+          <span>Executions</span>
+          <strong>{latest.executionCount ?? "—"}</strong>
+        </div>
+      </div>
+      {history.invalidFileCount > 0 ? (
+        <p className="history-warning">
+          {history.invalidFileCount} malformed history file(s) were excluded.
+        </p>
+      ) : null}
+    </section>
   );
 }
 
