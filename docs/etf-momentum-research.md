@@ -12,9 +12,15 @@ Run `npm run research:download-etfs` with Alpaca data credentials to write the i
 `test-fixtures/data/alpaca-etf-daily.json`. The default universe is `SPY,QQQ,IWM,IEF,GLD`; requests
 use the IEX feed, daily timeframe, and `adjustment=all`.
 
-The 2026-09-07 download returned 7,681 bars. Common history for all five symbols spans 2020-07-27
-through 2026-09-04. This is materially shorter than the desired 10–15 years and covers a favorable
+The 2026-09-20 download returned 7,726 bars. Common history for all five symbols spans 2020-07-27
+through 2026-09-18. This is materially shorter than the desired 10–15 years and covers a favorable
 period for US equities, so it is not sufficient promotion evidence.
+
+The downloader records `adjustment=all` provenance and refuses research files without explicit
+split, cash-dividend, and spin-off adjustment metadata. Those semantics match the
+[Alpaca historical-bars documentation](https://docs.alpaca.markets/us/v1.4.2/reference/stockbars).
+The SPY comparison is therefore a provider-adjusted return proxy, not an independent cross-vendor
+total-return validation.
 
 ## Model
 
@@ -34,25 +40,25 @@ or order submission.
 
 ## Initial result
 
-The base model returned 47.88% with 10.55% maximum drawdown and a 0.84 zero-rate Sharpe estimate.
-The matched 80%-SPY benchmark returned 75.17% with 19.90% maximum drawdown and a 0.78 Sharpe
+The base model returned 47.50% with 10.55% maximum drawdown and a 0.83 zero-rate Sharpe estimate.
+The matched 80%-SPY benchmark returned 73.95% with 19.90% maximum drawdown and a 0.77 Sharpe
 estimate. The model therefore did not improve absolute return, but it reduced observed drawdown and
 slightly improved return per unit of observed volatility.
 
 Momentum windows of 63, 126, and 189 sessions all remained profitable, while the 63-session version
 had the most turnover and weakest result. Trend windows from 150 through 250 sessions produced
 similar results; the 250-session variant had the best observed Sharpe and drawdown. Raising assumed
-cost from 10 to 25 basis points reduced the base result from 47.88% to 42.45%, demonstrating material
+cost from 10 to 25 basis points reduced the base result from 47.50% to 42.08%, demonstrating material
 turnover sensitivity.
 
-Delaying each monthly rebalance by one common trading session reduced return to 45.21% and raised
-maximum drawdown to 13.04%. A five-session delay returned 45.50% with 12.54% maximum drawdown. The
-candidate remained profitable in both timing stresses, but the one-session result lost 2.67
+Delaying each monthly rebalance by one common trading session reduced return to 44.89% and raised
+maximum drawdown to 13.04%. A five-session delay returned 44.95% with 12.54% maximum drawdown. The
+candidate remained profitable in both timing stresses, but the one-session result lost 2.62
 percentage points versus the exact-schedule base case. These are sensitivity tests on the same
 sample, not independent evidence.
 
-Skipping every third scheduled rebalance executed 50 and missed 25 rebalances. It returned 45.86%
-with 9.81% maximum drawdown and 15.99 times cumulative turnover, versus 47.88%, 10.55%, and 25.14
+Skipping every third scheduled rebalance executed 50 and missed 25 rebalances. It returned 43.23%
+with 9.81% maximum drawdown and 15.99 times cumulative turnover, versus 47.50%, 10.55%, and 25.14
 times for the base case. The lower turnover reduced both trading and responsiveness; the result does
 not establish that intentionally missing trades is beneficial.
 
@@ -63,19 +69,19 @@ partial-year rows are not comparable full calendar years. Aggregate return there
 downside protection and substantial upside participation gaps.
 
 Contribution accounting reconciles overnight moves, intraday moves, and transaction costs to the
-portfolio return. In the base case, GLD contributed 22.03 percentage points, QQQ 17.57, SPY 10.00,
+portfolio return. In the base case, GLD contributed 22.03 percentage points, QQQ 17.71, SPY 9.48,
 IWM 1.01, and IEF -2.73. The strategy's result is therefore concentrated in gold and growth-equity
 exposure over this particular sample; the nominally defensive bond sleeve detracted.
 
 Point-in-time regime attribution uses only prior SPY closes: risk-on requires price above its
-200-session average and positive 63-session momentum. The base strategy generated 40.76 percentage
+200-session average and positive 63-session momentum. The base strategy generated 40.38 percentage
 points in risk-on conditions and 7.12 in risk-off conditions. These are P&L contributions rather
 than regime-normalized return rates, but they show that most aggregate profit still came during a
 favorable equity trend.
 
-A constant 4% annual cash-yield sensitivity increased strategy return to 67.00% and benchmark return
-to 88.79%. Cash contributed 14.43 percentage points to the strategy and 8.93 to the 80%-SPY
-benchmark. Using 4% as the Sharpe hurdle reduced their Sharpe estimates to 0.61 and 0.57,
+A constant 4% annual cash-yield sensitivity increased strategy return to 66.65% and benchmark return
+to 87.53%. Cash contributed 14.50 percentage points to the strategy and 8.99 to the 80%-SPY
+benchmark. Using 4% as the Sharpe hurdle reduced their Sharpe estimates to 0.60 and 0.55,
 respectively. This deliberately simple constant-rate scenario removes the zero-yield assumption; it
 does not substitute for a point-in-time Treasury rate series.
 

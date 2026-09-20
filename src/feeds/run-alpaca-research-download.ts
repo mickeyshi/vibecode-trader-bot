@@ -21,6 +21,8 @@ await writeFile(
     {
       source: "Alpaca IEX historical bars",
       adjustment: "all",
+      corporateActionAdjustments: ["split", "dividend", "spin-off"],
+      adjustmentDocumentation: "https://docs.alpaca.markets/us/v1.4.2/reference/stockbars",
       timeframe: "1d",
       requestedAt: new Date().toISOString(),
       from: args.from,

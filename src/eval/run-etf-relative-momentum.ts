@@ -1,8 +1,9 @@
 import { DEFAULT_ETF_MOMENTUM_CONFIG, runEtfRelativeMomentum } from "./etf-relative-momentum.js";
-import { loadResearchCandles } from "./research-candle-loader.js";
+import { loadResearchDataset } from "./research-candle-loader.js";
 
 const path = process.argv[2] ?? "test-fixtures/data/alpaca-etf-daily.json";
-const candles = await loadResearchCandles(path);
+const dataset = await loadResearchDataset(path);
+const candles = dataset.candles;
 
 const configurations = [
   DEFAULT_ETF_MOMENTUM_CONFIG,
@@ -24,6 +25,20 @@ console.log(
   JSON.stringify(
     {
       researchOnly: true,
+      dataProvenance: {
+        source: dataset.source,
+        adjustment: dataset.adjustment,
+        corporateActionAdjustments: dataset.corporateActionAdjustments,
+        requestedAt: dataset.requestedAt,
+        requestedRange: { from: dataset.from, to: dataset.to }
+      },
+      benchmarkDefinition: {
+        symbol: "SPY",
+        grossWeight: DEFAULT_ETF_MOMENTUM_CONFIG.maxGrossWeight,
+        residualAsset: "cash",
+        interpretation:
+          "Provider-adjusted SPY return proxy; not independently cross-validated against another total-return vendor."
+      },
       methodology:
         "Monthly selection uses only prior closes and executes at the next available open; adjusted Alpaca IEX daily bars; cash allowed; no news signal.",
       limitations: [
