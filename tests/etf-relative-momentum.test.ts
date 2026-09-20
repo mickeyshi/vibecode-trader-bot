@@ -34,6 +34,10 @@ describe("ETF relative momentum research simulation", () => {
     expect(result.strategy.endingEquity).toBeGreaterThan(100_000);
     expect(result.strategy.maxDrawdownPct).toBeGreaterThanOrEqual(0);
     expect(Object.keys(result.strategy.annualReturnsPct)).toEqual(["2024"]);
+    expect(Object.keys(result.strategy.symbolContributionPct).length).toBeGreaterThan(0);
+    expect(
+      Object.values(result.strategy.symbolContributionPct).reduce((sum, value) => sum + value, 0)
+    ).toBeCloseTo(result.strategy.totalReturnPct, 3);
   });
 
   it("refuses insufficient history", () => {

@@ -29,6 +29,7 @@ export interface PerformanceSummary {
   maxDrawdownPct: number;
   turnover: number;
   annualReturnsPct: Record<string, number>;
+  symbolContributionPct: Record<string, number>;
 }
 
 export const DEFAULT_ETF_MOMENTUM_CONFIG: EtfMomentumConfig = {
@@ -56,8 +57,20 @@ export function runEtfRelativeMomentum(
   const strategy = simulate(dates, byDate, config, startingEquity, false);
   const benchmark = simulate(dates, byDate, config, startingEquity, true);
   return {
-    strategy: summarize(strategy.equity, strategy.turnover, startingEquity, evaluationStartDate),
-    benchmark: summarize(benchmark.equity, benchmark.turnover, startingEquity, evaluationStartDate),
+    strategy: summarize(
+      strategy.equity,
+      strategy.turnover,
+      strategy.contributions,
+      startingEquity,
+      evaluationStartDate
+    ),
+    benchmark: summarize(
+      benchmark.equity,
+      benchmark.turnover,
+      benchmark.contributions,
+      startingEquity,
+      evaluationStartDate
+    ),
     rebalanceCount: strategy.rebalanceCount,
     missedRebalanceCount: strategy.missedRebalanceCount,
     firstDate: dates[0]!,
@@ -74,11 +87,13 @@ function simulate(
 ): {
   equity: { date: string; value: number }[];
   turnover: { date: string; value: number }[];
+  contributions: { date: string; symbol: string; value: number }[];
   rebalanceCount: number;
   missedRebalanceCount: number;
 } {
   let cash = startingEquity;
   const turnover: { date: string; value: number }[] = [];
+  const contributions: { date: string; symbol: string; value: number }[] = [];
   let rebalanceCount = 0;
   let missedRebalanceCount = 0;
   let scheduledRebalanceCount = 0;
@@ -87,10 +102,22 @@ function simulate(
   const shares = new Map<string, number>();
   const histories = new Map<string, number[]>();
   const equity: { date: string; value: number }[] = [];
+  const priorCloses = new Map<string, number>();
   const allocator = new EtfRelativeMomentumAllocator(config);
 
   for (const date of dates) {
     const bars = byDate.get(date)!;
+    for (const bar of bars) {
+      const priorClose = priorCloses.get(bar.symbol);
+      const quantity = shares.get(bar.symbol) ?? 0;
+      if (priorClose !== undefined && quantity !== 0) {
+        contributions.push({
+          date,
+          symbol: bar.symbol,
+          value: quantity * (bar.open - priorClose)
+        });
+      }
+    }
     const month = date.slice(0, 7);
     if (month !== activeMonth) {
       activeMonth = month;
@@ -128,12 +155,24 @@ function simulate(
           cash += currentValue - desiredValue - cost;
           shares.set(symbol, desiredValue / price);
           turnover.push({ date, value: tradedValue / currentEquity });
+          contributions.push({ date, symbol, value: -cost });
         }
         rebalanceCount += 1;
       }
     }
 
     const closePrices = new Map(bars.map((bar) => [bar.symbol, bar.close]));
+    for (const bar of bars) {
+      const quantity = shares.get(bar.symbol) ?? 0;
+      if (quantity !== 0) {
+        contributions.push({
+          date,
+          symbol: bar.symbol,
+          value: quantity * (bar.close - bar.open)
+        });
+      }
+      priorCloses.set(bar.symbol, bar.close);
+    }
     equity.push({ date, value: portfolioValue(cash, shares, closePrices) });
     for (const bar of bars) {
       const history = histories.get(bar.symbol) ?? [];
@@ -142,12 +181,13 @@ function simulate(
     }
     sessionInMonth += 1;
   }
-  return { equity, turnover, rebalanceCount, missedRebalanceCount };
+  return { equity, turnover, contributions, rebalanceCount, missedRebalanceCount };
 }
 
 function summarize(
   allEquity: { date: string; value: number }[],
   turnoverEntries: { date: string; value: number }[],
+  contributionEntries: { date: string; symbol: string; value: number }[],
   startingEquity: number,
   evaluationStartDate?: string
 ): PerformanceSummary {
@@ -181,8 +221,30 @@ function summarize(
         .filter((entry) => !evaluationStartDate || entry.date >= evaluationStartDate)
         .reduce((sum, entry) => sum + entry.value, 0)
     ),
-    annualReturnsPct: annualReturns(equity, baselineEquity)
+    annualReturnsPct: annualReturns(equity, baselineEquity),
+    symbolContributionPct: symbolContributions(
+      contributionEntries,
+      baselineEquity,
+      evaluationStartDate
+    )
   };
+}
+
+function symbolContributions(
+  entries: { date: string; symbol: string; value: number }[],
+  baselineEquity: number,
+  evaluationStartDate?: string
+): Record<string, number> {
+  const values = new Map<string, number>();
+  for (const entry of entries) {
+    if (evaluationStartDate && entry.date <= evaluationStartDate) continue;
+    values.set(entry.symbol, (values.get(entry.symbol) ?? 0) + entry.value);
+  }
+  return Object.fromEntries(
+    [...values.entries()]
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([symbol, value]) => [symbol, round((value / baselineEquity) * 100)])
+  );
 }
 
 function annualReturns(

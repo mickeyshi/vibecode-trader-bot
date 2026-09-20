@@ -62,6 +62,11 @@ It returned 14.99% versus 19.57% in 2024 and 17.70% versus 14.04% in 2025. The 2
 partial-year rows are not comparable full calendar years. Aggregate return therefore masks both
 downside protection and substantial upside participation gaps.
 
+Contribution accounting reconciles overnight moves, intraday moves, and transaction costs to the
+portfolio return. In the base case, GLD contributed 22.03 percentage points, QQQ 17.57, SPY 10.00,
+IWM 1.01, and IEF -2.73. The strategy's result is therefore concentrated in gold and growth-equity
+exposure over this particular sample; the nominally defensive bond sleeve detracted.
+
 ## Promotion gates
 
 Before coordinator integration:
@@ -69,8 +74,8 @@ Before coordinator integration:
 1. Obtain at least 10 years of point-in-time history or explicitly accept the shorter evidence.
 2. Add rolling out-of-sample evaluation with frozen parameter selection.
 3. Include a positive risk-free cash return and total-return benchmark validation.
-4. Attribute returns by symbol and regime. Calendar-year returns plus delayed and deterministically
-   missed rebalances are now reported.
+4. Attribute returns by regime. Symbol contribution, calendar-year returns, and delayed and
+   deterministically missed rebalances are now reported.
 5. Add a portfolio-allocation boundary; do not force cross-symbol ranking into the per-symbol
    `Strategy` interface.
 6. Add news only as a separately tested event veto, with publication timestamps and duplicate-story
