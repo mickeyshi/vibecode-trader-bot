@@ -2,7 +2,7 @@
 
 ## Status
 
-Accepted as an initial assumption.
+Superseded by [0012: First Hosted Paper Deployment](0012-first-hosted-paper-deployment.md).
 
 ## Context
 
@@ -11,6 +11,10 @@ The project is a small trading bot that should remain understandable, inexpensiv
 ## Decision
 
 Use DigitalOcean App Platform as the assumed first hosted deployment target. Keep the app containerized and configuration-driven so the hosting platform can be changed later without rewriting strategy, risk, execution, or data-feed code.
+
+This assumption predated the SQLite execution-recovery decision. DigitalOcean App Platform does
+not provide persistent local volumes, so it no longer fits the current state model without a
+database migration.
 
 ## Expected Shape
 

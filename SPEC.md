@@ -247,12 +247,14 @@ documented, and explicitly approved:
 
 ## Recommended Development Order
 
-1. Review and register the provided dry-run supervisor and independent heartbeat-monitor schedule.
-2. Configure HTTPS alert delivery and document incident ownership and response procedures.
-3. Run bounded paper sessions across multiple market days until explicit soak criteria pass.
-4. Add independent calendar verification, position-drift reconciliation, and order timeouts.
-5. Prepare a separately reviewed tiny-capital live acceptance plan only after soak criteria pass.
-6. Continue dashboard report loading and strategy research without allowing those tasks to bypass
+1. Build the production read-only server, authentication boundary, health endpoints, and container
+   preflight defined by ADR 0012; provisioning remains separately approved.
+2. Review and register the provided dry-run supervisor and independent heartbeat-monitor schedule.
+3. Configure HTTPS alert delivery and document incident ownership and response procedures.
+4. Run bounded paper sessions across multiple market days until explicit soak criteria pass.
+5. Add independent calendar verification, position-drift reconciliation, and order timeouts.
+6. Prepare a separately reviewed tiny-capital live acceptance plan only after soak criteria pass.
+7. Continue dashboard report loading and strategy research without allowing those tasks to bypass
    the live-readiness order above.
 
 ## Non-Goals
