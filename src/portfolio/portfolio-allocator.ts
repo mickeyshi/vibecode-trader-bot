@@ -3,6 +3,7 @@ import type { MarketEvent } from "../core/types.js";
 export interface PortfolioAllocationRequest {
   closeHistoryBySymbol: ReadonlyMap<string, readonly number[]>;
   recentEvents?: readonly MarketEvent[];
+  asOf?: Date;
 }
 
 export interface PortfolioAllocationTarget {

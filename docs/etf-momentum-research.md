@@ -98,8 +98,10 @@ Before coordinator integration:
    deterministically missed rebalances are reported.
 5. Add a portfolio-allocation boundary; do not force cross-symbol ranking into the per-symbol
    `Strategy` interface.
-6. Add news only as a separately tested event veto, with publication timestamps and duplicate-story
-   handling.
+6. The allocation event veto now requires an explicit point-in-time `asOf`, ignores future and
+   out-of-lookback events, and normalizes duplicate-story identity. Selecting a news provider and
+   validating those controls against a historical event dataset remain open; news must stay a veto
+   rather than a return-generating signal until that work is complete.
 7. Complete a dry-run soak before any order-submitting paper use.
 
 ## Rolling evaluation result

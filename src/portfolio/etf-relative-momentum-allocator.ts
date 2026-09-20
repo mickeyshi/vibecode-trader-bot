@@ -13,6 +13,7 @@ export interface EtfMomentumAllocationConfig {
   maxGrossWeight: number;
   selectionCount: number;
   blockEventImportanceAtOrAbove: number;
+  eventLookbackMs: number;
 }
 
 export const DEFAULT_ETF_MOMENTUM_ALLOCATION_CONFIG: EtfMomentumAllocationConfig = {
@@ -23,7 +24,8 @@ export const DEFAULT_ETF_MOMENTUM_ALLOCATION_CONFIG: EtfMomentumAllocationConfig
   maxAssetWeight: 0.4,
   maxGrossWeight: 0.8,
   selectionCount: 2,
-  blockEventImportanceAtOrAbove: 8
+  blockEventImportanceAtOrAbove: 8,
+  eventLookbackMs: 3 * 24 * 60 * 60 * 1000
 };
 
 export class EtfRelativeMomentumAllocator implements PortfolioAllocator {
@@ -32,8 +34,32 @@ export class EtfRelativeMomentumAllocator implements PortfolioAllocator {
   }
 
   allocate(request: PortfolioAllocationRequest): PortfolioAllocationPlan {
+    const events = request.recentEvents ?? [];
+    if (events.length > 0 && !request.asOf) {
+      throw new Error("Allocation events require an explicit asOf timestamp.");
+    }
+    const asOf = request.asOf?.getTime();
+    const uniqueEvents = new Map<string, (typeof events)[number]>();
+    for (const event of events) {
+      const timestamp = event.timestamp.getTime();
+      if (
+        asOf === undefined ||
+        !Number.isFinite(timestamp) ||
+        timestamp > asOf ||
+        timestamp < asOf - this.config.eventLookbackMs
+      ) {
+        continue;
+      }
+      const key = [
+        event.source.trim().toLowerCase(),
+        event.symbol?.trim().toUpperCase() ?? "MARKET",
+        event.headline.trim().toLowerCase().replace(/\s+/g, " ")
+      ].join("|");
+      const existing = uniqueEvents.get(key);
+      if (!existing || existing.timestamp < event.timestamp) uniqueEvents.set(key, event);
+    }
     const blockedSymbols = new Set(
-      (request.recentEvents ?? [])
+      [...uniqueEvents.values()]
         .filter(
           (event) =>
             event.symbol &&
@@ -132,5 +158,8 @@ function validateConfig(config: EtfMomentumAllocationConfig): void {
   }
   if (config.blockEventImportanceAtOrAbove < 0) {
     throw new Error("Allocator event importance threshold must be non-negative.");
+  }
+  if (!Number.isFinite(config.eventLookbackMs) || config.eventLookbackMs <= 0) {
+    throw new Error("Allocator event lookback must be positive.");
   }
 }
