@@ -164,6 +164,14 @@ never includes credential values.
 npm run deployment:preflight
 ```
 
+Create a consistent SQLite/history backup and immediately prove that it can be restored and
+validated in an isolated temporary directory. The command refuses to run while a coordinator lease
+is active and never overwrites an existing backup directory:
+
+```powershell
+npm run paper-backup:drill
+```
+
 The app displays connection, snapshot freshness, last-sync state, and a bounded run-history equity
 timeline from validated snapshots under `reports/live-ops-history`. Its service worker caches the
 application shell but deliberately excludes live account and history APIs. Android installation from a

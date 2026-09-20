@@ -68,7 +68,9 @@ Do not provision it until these repository-level prerequisites exist and pass lo
 3. Container startup validates paper mode, the paper endpoint, the armed kill switch, exactly one
    coordinator owner, and writable persistent paths before becoming ready.
 4. The image runs as a non-root user and contains no credentials or generated reports.
-5. A backup/restore drill covers SQLite plus WAL/SHM files and retained report history.
+5. A backup/restore drill covers SQLite (including WAL state through the online backup API) and
+   retained report history. This repository prerequisite is implemented by `paper-backup:drill`;
+   hosted backup scheduling and retention still require deployment approval.
 6. CI builds and scans the container without credentials; deployment remains a separately approved
    environment with manual promotion and rollback.
 7. External heartbeat and alert delivery are configured outside the deployed Machine.

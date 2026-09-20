@@ -43,9 +43,14 @@ broker state before retrying. Do not increase tolerance merely to clear the gate
 
 ## SQLite Recovery
 
-The database and WAL/SHM siblings are ignored under `reports/`. Back them up only with no active
-lease, and restore the siblings as one set. If opening or validation fails, preserve the files for
-incident review and stop; never initialize empty state while broker orders might be unresolved.
+The database and WAL/SHM siblings are ignored under `reports/`. Run `npm run paper-backup:drill`
+only while the coordinator is stopped. It refuses an active lease, uses SQLite's online backup API
+to fold the main database and any WAL state into one consistent database file, copies retained live
+operations history, records SHA-256 hashes, and validates a temporary restore with SQLite's
+integrity check plus execution-state and unresolved-journal parsing. Backups are immutable: choose a
+new `--backup-dir` rather than overwriting one. If backup or validation fails, preserve the source
+and failed evidence for incident review and stop; never initialize empty state while broker orders
+might be unresolved.
 
 ## Heartbeat or Provider Failure
 

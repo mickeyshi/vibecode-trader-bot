@@ -35,6 +35,7 @@
     "test:alpaca:integration": "vitest run tests/alpaca-paper.integration.test.ts",
     "paper-soak:audit": "tsx src/eval/run-paper-soak-audit.ts",
     "paper-recovery:drill": "tsx src/execution/run-recovery-drill.ts",
+    "paper-backup:drill": "tsx src/execution/run-paper-state-backup-drill.ts",
     "paper-supervisor:preview": "powershell -NoProfile -ExecutionPolicy Bypass -File scripts/install-paper-supervisor.ps1"
   },
   "engines": {

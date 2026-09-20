@@ -187,7 +187,9 @@ session.
 - **Continuous supervision:** local single-runner leases, atomic heartbeats, a monitor command, and
   HTTPS webhook alerts exist. A separately selected external process manager and scheduler remain.
 - **Durable state:** SQLite transactionally stores recovery state and pre-submit journal entries for
-  a single host. Hosted or concurrent workers require a different persistence/consensus boundary.
+  a single host. A fail-closed backup/restore drill creates a hashed, self-contained SQLite and
+  retained-history backup, then validates an isolated restore. Hosted or concurrent workers require
+  a different persistence/consensus boundary.
 - **Streaming and rate visibility:** bounded retry now includes network failures and an outage
   circuit breaker. WebSocket streaming and rate-limit dashboard visibility remain.
 - **Alert delivery:** a generic HTTPS webhook sink and stale-heartbeat monitor exist. External
