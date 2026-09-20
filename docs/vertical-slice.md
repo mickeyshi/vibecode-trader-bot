@@ -24,7 +24,9 @@ Fixture candles
 - Risk blocks oversized orders, oversized projected positions, daily-loss breaches, and high-impact events.
 - Risk also blocks fee-aware buys that exceed buying power and sells that would create short positions by default.
 - Portfolio policy is long-only, cash-only, average-cost-only, with no borrow-cost or wash-sale model.
-- Paper execution fills from the latest candle close with configurable fee, slippage, spread, partial-fill, and skipped-fill assumptions.
+- Paper execution fills from the latest candle close with configurable fee, slippage, spread,
+  partial-fill, skipped-fill, cumulative candle-volume participation, and linear market-impact
+  assumptions.
 - Portfolio state tracks cash, fee-aware cost basis, realized PnL, unrealized PnL, fills, orders, positions, gross exposure, and marked-to-market equity.
 - Backtest output reports ending equity, ending cash, position value, gross exposure, realized/unrealized PnL, total return, max drawdown, order count, fill count, risk rejection count, equity point count, fees, skipped orders, closed-trade stats, data-quality warning count, and assumptions.
 - Optional report exports include full JSON plus CSV files for orders, fills, closed trades, risk rejections, data-quality warnings, and the equity curve.

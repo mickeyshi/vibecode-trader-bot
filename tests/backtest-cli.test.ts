@@ -36,6 +36,10 @@ describe("backtest CLI helpers", () => {
       "0.5",
       "--skip-fill-every",
       "3",
+      "--max-volume-participation-pct",
+      "2.5",
+      "--market-impact-bps-at-max-participation",
+      "15",
       "--max-data-gap-days",
       "6",
       "--market-calendar",
@@ -65,6 +69,8 @@ describe("backtest CLI helpers", () => {
     expect(config.spreadBps).toBe(4);
     expect(config.fillRatio).toBe(0.5);
     expect(config.skipFillEvery).toBe(3);
+    expect(config.maxVolumeParticipationPct).toBe(2.5);
+    expect(config.marketImpactBpsAtMaxParticipation).toBe(15);
     expect(config.maxDataGapDays).toBe(6);
     expect(config.marketCalendar).toBe("crypto-24-7");
     expect(config.marketHolidays).toEqual(["2026-01-01", "2026-12-25"]);
@@ -161,6 +167,12 @@ describe("backtest CLI helpers", () => {
   it("rejects invalid moving-average windows", () => {
     expect(() => parseBacktestCliArgs(["--short-window", "5", "--long-window", "5"])).toThrow(
       "--short-window must be less than --long-window"
+    );
+  });
+
+  it("rejects volume participation above 100 percent", () => {
+    expect(() => parseBacktestCliArgs(["--max-volume-participation-pct", "101"])).toThrow(
+      "at most 100"
     );
   });
 

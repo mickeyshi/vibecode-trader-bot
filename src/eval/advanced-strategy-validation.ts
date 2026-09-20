@@ -51,6 +51,8 @@ export async function runAdvancedStrategyValidation(): Promise<StrategyValidatio
           slippageBps: friction === "base" ? 5 : 20,
           spreadBps: friction === "base" ? 5 : 20,
           fillRatio: 1,
+          maxVolumeParticipationPct: 1,
+          marketImpactBpsAtMaxParticipation: friction === "base" ? 10 : 25,
           maxDataGapDays: 4,
           marketCalendar: "weekday"
         });
@@ -73,7 +75,7 @@ export function renderAdvancedStrategyValidation(result: StrategyValidationResul
     "",
     "## Method",
     "",
-    "Each strategy used its registered default parameters, with no tuning on these scenarios. Every run used the shared signal -> intent -> risk -> paper executor -> portfolio replay path and the same 10% target allocation, preventing repeated buy signals from creating unequal benchmark exposure. Buy-and-hold is the benchmark. Base friction is 0.10% fee, 5 bps slippage, and 5 bps spread; stressed friction is 0.25% fee, 20 bps slippage, and 20 bps spread. Orders fill immediately and completely at the modeled candle close. The calendar is weekday-only with no holidays, dividends, taxes, latency, liquidity, corporate actions, or short selling.",
+    "Each strategy used its registered default parameters, with no tuning on these scenarios. Every run used the shared signal -> intent -> risk -> paper executor -> portfolio replay path and the same 10% target allocation, preventing repeated buy signals from creating unequal benchmark exposure. Buy-and-hold is the benchmark. Base friction is 0.10% fee, 5 bps slippage, 5 bps spread, and up to 10 bps linear market impact; stressed friction is 0.25% fee, 20 bps slippage, 20 bps spread, and up to 25 bps impact. Fills are capped cumulatively at 1% of each modeled candle's volume. The calendar is weekday-only with no holidays, dividends, taxes, latency, corporate actions, short selling, or order-book queue modeling.",
     "",
     "The fixtures contain 90 daily candles from 2024-01-02 onward and intentionally represent distinct regimes. They are deterministic test inputs, not sampled market history, so the report vets mechanics and directional behavior rather than forecasting skill.",
     "",
@@ -189,7 +191,7 @@ function candlesFromCloses(closes: number[]): Candle[] {
       high: Math.max(prior, close) * 1.005,
       low: Math.min(prior, close) * 0.995,
       close,
-      volume: 1_000_000
+      volume: 1_000
     };
   });
 }

@@ -31,7 +31,15 @@ export class SimpleBacktester implements Backtester {
         slippageBps: request.slippageBps,
         spreadBps: request.spreadBps ?? 0,
         fillRatio: request.fillRatio ?? 1,
-        ...(request.skipFillEvery !== undefined ? { skipFillEvery: request.skipFillEvery } : {})
+        ...(request.skipFillEvery !== undefined ? { skipFillEvery: request.skipFillEvery } : {}),
+        ...(request.maxVolumeParticipationPct !== undefined
+          ? { maxVolumeParticipationPct: request.maxVolumeParticipationPct }
+          : {}),
+        ...(request.marketImpactBpsAtMaxParticipation !== undefined
+          ? {
+              marketImpactBpsAtMaxParticipation: request.marketImpactBpsAtMaxParticipation
+            }
+          : {})
       },
       riskDefaults: {
         maxOrderNotional: request.startingEquity * 0.2,

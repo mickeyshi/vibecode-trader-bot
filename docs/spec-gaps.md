@@ -12,7 +12,8 @@ This list tracks known gaps between the current framework slice and a trading bo
 - Backtest reports now include rejected risk decisions for audit-oriented debugging.
 - A small committed Stooq sample fixture is available for routine loader tests.
 - The backtest CLI supports configurable fixture path, symbol, starting equity, fees, slippage, strategy windows, and full JSON report export.
-- Paper execution can model spread, deterministic partial fills, and deterministic skipped fills.
+- Paper execution can model spread, deterministic partial and skipped fills, cumulative candle-volume
+  participation, and linear participation-based market impact.
 - Backtest reports include richer metrics, CSV exports, and missing-data gap warnings.
 - Backtest CLI settings can be loaded from a JSON config file, with explicit CLI flags taking precedence.
 - Backtest metrics include closed-trade count, win/loss counts, win rate, gross profit/loss, and profit factor.

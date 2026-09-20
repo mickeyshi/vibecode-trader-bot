@@ -56,6 +56,8 @@ for (const strategyId of strategyIds) {
     slippageBps: cli.slippageBps,
     spreadBps: cli.spreadBps,
     fillRatio: cli.fillRatio,
+    maxVolumeParticipationPct: cli.maxVolumeParticipationPct,
+    marketImpactBpsAtMaxParticipation: cli.marketImpactBpsAtMaxParticipation,
     maxDataGapDays: cli.maxDataGapDays,
     marketCalendar: cli.marketCalendar,
     marketHolidays: cli.marketHolidays,

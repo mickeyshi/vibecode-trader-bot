@@ -2,11 +2,31 @@ import { describe, expect, it } from "vitest";
 import type { StrategyContext } from "../src/data/interfaces.js";
 import { SimpleBacktester } from "../src/eval/simple-backtester.js";
 import { InMemoryObservabilitySink } from "../src/observability/in-memory-observability-sink.js";
+import { BuyAndHoldStrategy } from "../src/strategies/buy-and-hold-strategy.js";
 import type { SignalToIntentMapper, StrategySignal } from "../src/strategies/interfaces.js";
 import { MovingAverageCrossoverStrategy } from "../src/strategies/moving-average-crossover-strategy.js";
 import { makeCandles } from "./fixtures.js";
 
 describe("SimpleBacktester", () => {
+  it("applies candle-volume participation limits through the replay path", async () => {
+    const candles = makeCandles([100, 101]).map((candle) => ({ ...candle, volume: 10 }));
+    const report = await new SimpleBacktester({ strategy: new BuyAndHoldStrategy() }).run({
+      strategyId: "buy-and-hold",
+      symbols: ["DEMO/USD"],
+      candles,
+      startingEquity: 10_000,
+      feeRate: 0,
+      slippageBps: 0,
+      maxVolumeParticipationPct: 10,
+      marketImpactBpsAtMaxParticipation: 20
+    });
+
+    expect(report.fills[0]?.quantity).toBe(1);
+    expect(report.fills[0]?.price).toBeCloseTo(100.2);
+    expect(report.orders[0]?.status).toBe("partially-filled");
+    expect(report.assumptions).toContain("Max volume participation: 10 percent.");
+  });
+
   it("runs candles through strategy, risk, paper execution, and reporting", async () => {
     const strategy = new MovingAverageCrossoverStrategy({
       shortWindow: 2,

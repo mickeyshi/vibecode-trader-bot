@@ -78,6 +78,8 @@ export interface BacktestRequest {
   spreadBps?: number;
   fillRatio?: number;
   skipFillEvery?: number;
+  maxVolumeParticipationPct?: number;
+  marketImpactBpsAtMaxParticipation?: number;
   maxDataGapDays?: number;
   marketCalendar?: MarketCalendarId;
   marketHolidays?: string[];

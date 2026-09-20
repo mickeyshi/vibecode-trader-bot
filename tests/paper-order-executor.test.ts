@@ -188,4 +188,86 @@ describe("PaperOrderExecutor", () => {
     expect(skipped.order.status).toBe("cancelled");
     expect(skipped.fills).toHaveLength(0);
   });
+
+  it("caps cumulative fills by candle volume and applies participation impact", async () => {
+    const portfolio = new InMemoryPortfolioStore(100_000);
+    const snapshot = {
+      price: 100,
+      volume: 100,
+      timestamp: new Date("2026-09-18T20:00:00Z")
+    };
+    const executor = new PaperOrderExecutor(portfolio, async () => snapshot, {
+      feeRate: 0,
+      slippageBps: 0,
+      maxVolumeParticipationPct: 10,
+      marketImpactBpsAtMaxParticipation: 20
+    });
+
+    const first = await executor.placeOrder({
+      symbol: "SPY",
+      side: "buy",
+      type: "market",
+      quantity: 20,
+      reason: "liquidity test",
+      strategyId: "test-strategy"
+    });
+    const second = await executor.placeOrder({
+      symbol: "SPY",
+      side: "buy",
+      type: "market",
+      quantity: 1,
+      reason: "same candle capacity exhausted",
+      strategyId: "test-strategy"
+    });
+
+    expect(first.order.status).toBe("partially-filled");
+    expect(first.order.filledQuantity).toBe(10);
+    expect(first.order.averageFillPrice).toBeCloseTo(100.2);
+    expect(first.fills[0]?.quantity).toBe(10);
+    expect(first.fills[0]?.price).toBeCloseTo(100.2);
+    expect(first.rawResponse).toMatchObject({ volumeLimited: true, impactBps: 20 });
+    expect(second.order.status).toBe("cancelled");
+    expect(second.fills).toEqual([]);
+    expect(second.rawResponse).toMatchObject({ reason: "insufficient-market-volume" });
+  });
+
+  it("fails closed when participation limits lack valid market volume", async () => {
+    const portfolio = new InMemoryPortfolioStore(10_000);
+    const executor = new PaperOrderExecutor(portfolio, async () => 100, {
+      feeRate: 0,
+      slippageBps: 0,
+      maxVolumeParticipationPct: 1
+    });
+
+    await expect(
+      executor.placeOrder({
+        symbol: "SPY",
+        side: "buy",
+        type: "market",
+        quantity: 1,
+        reason: "missing volume",
+        strategyId: "test-strategy"
+      })
+    ).rejects.toThrow("market volume is required");
+  });
+
+  it("rejects invalid liquidity configuration before accepting an order", () => {
+    const portfolio = new InMemoryPortfolioStore(10_000);
+    expect(
+      () =>
+        new PaperOrderExecutor(portfolio, async () => 100, {
+          feeRate: 0,
+          slippageBps: 0,
+          maxVolumeParticipationPct: 101
+        })
+    ).toThrow("at most 100 percent");
+    expect(
+      () =>
+        new PaperOrderExecutor(portfolio, async () => 100, {
+          feeRate: 0,
+          slippageBps: 0,
+          marketImpactBpsAtMaxParticipation: 10
+        })
+    ).toThrow("requires a max volume participation");
+  });
 });

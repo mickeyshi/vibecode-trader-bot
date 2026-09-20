@@ -206,6 +206,11 @@ npm run backtest -- --report reports/backtest.json --report-csv-dir reports/back
 npm run backtest -- --help
 ```
 
+The generic replay defaults to a 1% maximum share of each candle's reported volume and adds up to
+10 basis points of linear market impact at that cap. Override these explicitly with
+`--max-volume-participation-pct` and `--market-impact-bps-at-max-participation`; reports record both
+assumptions. This is a conservative bar-level approximation, not an order-book simulation.
+
 Generate the reproducible synthetic-regime report with `npm run validate:advanced-strategies`.
 It compares equal target allocations under base and stressed friction and writes
 `reports/advanced-strategy-validation.md` by default. Pass a path after `--` to write elsewhere.

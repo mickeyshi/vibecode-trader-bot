@@ -20,6 +20,8 @@ export interface BacktestCliConfig {
   spreadBps: number;
   fillRatio: number;
   skipFillEvery?: number;
+  maxVolumeParticipationPct: number;
+  marketImpactBpsAtMaxParticipation: number;
   maxDataGapDays: number;
   marketCalendar: MarketCalendarId;
   marketHolidays: string[];
@@ -61,6 +63,8 @@ const defaults: BacktestCliConfig = {
   slippageBps: 5,
   spreadBps: 0,
   fillRatio: 1,
+  maxVolumeParticipationPct: 1,
+  marketImpactBpsAtMaxParticipation: 10,
   maxDataGapDays: 4,
   marketCalendar: "weekday",
   marketHolidays: [],
@@ -163,6 +167,14 @@ export function parseBacktestCliArgs(
         break;
       case "skip-fill-every":
         config.skipFillEvery = positiveInteger(rawName, value);
+        if (inlineValue === undefined) index += 1;
+        break;
+      case "max-volume-participation-pct":
+        config.maxVolumeParticipationPct = percentageNumber(rawName, value);
+        if (inlineValue === undefined) index += 1;
+        break;
+      case "market-impact-bps-at-max-participation":
+        config.marketImpactBpsAtMaxParticipation = nonNegativeNumber(rawName, value);
         if (inlineValue === undefined) index += 1;
         break;
       case "max-data-gap-days":
@@ -487,6 +499,8 @@ export function backtestHelpText(): string {
     "  --spread-bps <n>          Simulated bid/ask spread in basis points, default 0",
     "  --fill-ratio <n>          Fraction of each approved order filled, 0-1, default 1",
     "  --skip-fill-every <n>     Cancel every nth approved order to model missed fills",
+    "  --max-volume-participation-pct <n>  Max candle-volume participation percent, default 1",
+    "  --market-impact-bps-at-max-participation <n>  Added impact at the volume cap, default 10 bps",
     "  --max-data-gap-days <n>   Warn when a symbol has a candle gap above this many days, default 4",
     "  --market-calendar <id>    Data-gap calendar: weekday or crypto-24-7, default weekday",
     "  --market-holidays <list>  Comma-separated YYYY-MM-DD dates excluded from expected sessions",
@@ -545,6 +559,8 @@ function validateBacktestCliConfigFile(
     "spreadBps",
     "fillRatio",
     "skipFillEvery",
+    "maxVolumeParticipationPct",
+    "marketImpactBpsAtMaxParticipation",
     "maxDataGapDays",
     "marketCalendar",
     "marketHolidays",
@@ -584,8 +600,12 @@ function validateBacktestCliConfigFile(
       case "feeRate":
       case "slippageBps":
       case "spreadBps":
+      case "marketImpactBpsAtMaxParticipation":
       case "minConfidence":
         config[key] = configNonNegativeNumber(key, value, configPath);
+        break;
+      case "maxVolumeParticipationPct":
+        config[key] = configPercentageNumber(key, value, configPath);
         break;
       case "fillRatio":
         config[key] = configRatioNumber(key, value, configPath);
@@ -647,6 +667,12 @@ function ratioNumber(name: string, value: string | undefined): number {
     throw new Error(`--${name} must be between 0 and 1.`);
   }
 
+  return parsed;
+}
+
+function percentageNumber(name: string, value: string | undefined): number {
+  const parsed = positiveNumber(name, value);
+  if (parsed > 100) throw new Error(`--${name} must be greater than 0 and at most 100.`);
   return parsed;
 }
 
@@ -745,6 +771,14 @@ function configRatioNumber(key: string, value: unknown, configPath: string): num
     throw new Error(`Backtest config ${key} must be between 0 and 1 in ${configPath}.`);
   }
 
+  return numberValue;
+}
+
+function configPercentageNumber(key: string, value: unknown, configPath: string): number {
+  const numberValue = configPositiveNumber(key, value, configPath);
+  if (numberValue > 100) {
+    throw new Error(`Backtest config ${key} must be at most 100 in ${configPath}.`);
+  }
   return numberValue;
 }
 

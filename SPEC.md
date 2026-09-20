@@ -51,7 +51,8 @@ Historical replay uses the same market-data, feature, strategy, risk, paper-exec
 boundaries as the local backtester. Supported inputs include CSV, JSON, and Stooq text fixtures.
 
 Configurable assumptions include starting equity, fees, slippage, spread, fill ratio, skipped fills,
-date range, strategy parameters, market calendar, and explicit holidays. Reports include account
+cumulative candle-volume participation, linear market impact, date range, strategy parameters,
+market calendar, and explicit holidays. Reports include account
 and return metrics, drawdown, orders, fills, closed trades, risk rejections, data-quality warnings,
 equity points, logs, metrics, decision traces, and alerts. Reports can be written as JSON and CSV.
 
@@ -205,7 +206,9 @@ session.
   unseen folds are available and the first result failed promotion criteria.
 - No benchmark comparison, risk-adjusted return suite, turnover analysis, or exposure-by-time
   analysis beyond current report metrics.
-- No realistic liquidity, volume participation, latency, gap, halt, or order-book model.
+- Generic replay has a bar-volume participation cap and linear impact approximation. It still lacks
+  latency, opening-gap, halt, queue-position, and order-book models, and the ETF portfolio simulator
+  does not yet apply the generic liquidity model.
 - No corporate-action, delisting, survivorship-bias, or point-in-time universe handling.
 - No multi-strategy capital allocator, correlation limit, sector concentration limit, or portfolio
   rebalance policy.

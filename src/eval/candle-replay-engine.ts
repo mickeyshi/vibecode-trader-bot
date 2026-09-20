@@ -84,7 +84,11 @@ export class CandleReplayEngine {
         if (!tick) {
           throw new Error(`No latest tick for ${symbol}.`);
         }
-        return tick.last;
+        return {
+          price: tick.last,
+          ...(tick.volume === undefined ? {} : { volume: tick.volume }),
+          timestamp: tick.timestamp
+        };
       },
       request.execution
     );
@@ -331,6 +335,8 @@ export class CandleReplayEngine {
         `Spread: ${request.execution.spreadBps ?? 0} bps.`,
         `Fill ratio: ${request.execution.fillRatio ?? 1}.`,
         `Skip fill every: ${request.execution.skipFillEvery ?? "never"}.`,
+        `Max volume participation: ${request.execution.maxVolumeParticipationPct ?? "unlimited"} percent.`,
+        `Market impact at max participation: ${request.execution.marketImpactBpsAtMaxParticipation ?? 0} bps.`,
         `Missing data gap threshold: ${request.maxDataGapDays} days.`,
         `Market calendar: ${marketCalendar.id}.`,
         `Configured market holidays: ${(request.marketHolidays ?? []).length}.`

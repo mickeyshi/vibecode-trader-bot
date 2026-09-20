@@ -24,6 +24,8 @@
   "slippageBps": 2,
   "spreadBps": 4,
   "fillRatio": 0.5,
+  "maxVolumeParticipationPct": 1,
+  "marketImpactBpsAtMaxParticipation": 10,
   "skipFillEvery": 3,
   "maxDataGapDays": 4,
   "marketCalendar": "weekday",
