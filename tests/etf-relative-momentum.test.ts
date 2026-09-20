@@ -102,6 +102,26 @@ describe("ETF relative momentum research simulation", () => {
       ).toThrow("Skipped-rebalance interval");
     }
   });
+
+  it("accrues configured cash yield and uses it as the Sharpe hurdle", () => {
+    const candles = trendingCandles(420);
+    const zeroRate = runEtfRelativeMomentum(candles);
+    const positiveRate = runEtfRelativeMomentum(candles, {
+      ...DEFAULT_ETF_MOMENTUM_CONFIG,
+      cashAnnualYieldPct: 4
+    });
+    expect(positiveRate.strategy.symbolContributionPct.CASH).toBeGreaterThan(0);
+    expect(positiveRate.strategy.endingEquity).toBeGreaterThan(zeroRate.strategy.endingEquity);
+  });
+
+  it("rejects a negative cash yield", () => {
+    expect(() =>
+      runEtfRelativeMomentum(trendingCandles(320), {
+        ...DEFAULT_ETF_MOMENTUM_CONFIG,
+        cashAnnualYieldPct: -0.1
+      })
+    ).toThrow("Cash annual yield");
+  });
 });
 
 function trendingCandles(days: number): Candle[] {

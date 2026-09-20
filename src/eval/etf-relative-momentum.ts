@@ -9,6 +9,7 @@ export interface EtfMomentumConfig extends EtfMomentumAllocationConfig {
   transactionCostBps: number;
   rebalanceDelaySessions: number;
   skipEveryNthRebalance: number;
+  cashAnnualYieldPct: number;
 }
 
 export interface EtfMomentumResult {
@@ -46,7 +47,8 @@ export const DEFAULT_ETF_MOMENTUM_CONFIG: EtfMomentumConfig = {
   ...DEFAULT_ETF_MOMENTUM_ALLOCATION_CONFIG,
   transactionCostBps: 10,
   rebalanceDelaySessions: 0,
-  skipEveryNthRebalance: 0
+  skipEveryNthRebalance: 0,
+  cashAnnualYieldPct: 0
 };
 
 export function runEtfRelativeMomentum(
@@ -72,6 +74,7 @@ export function runEtfRelativeMomentum(
       strategy.turnover,
       strategy.contributions,
       startingEquity,
+      config.cashAnnualYieldPct,
       evaluationStartDate
     ),
     benchmark: summarize(
@@ -79,6 +82,7 @@ export function runEtfRelativeMomentum(
       benchmark.turnover,
       benchmark.contributions,
       startingEquity,
+      config.cashAnnualYieldPct,
       evaluationStartDate
     ),
     rebalanceCount: strategy.rebalanceCount,
@@ -174,6 +178,11 @@ function simulate(
     }
 
     const closePrices = new Map(bars.map((bar) => [bar.symbol, bar.close]));
+    if (cash > 0 && config.cashAnnualYieldPct > 0) {
+      const interest = cash * (config.cashAnnualYieldPct / 100 / 252);
+      cash += interest;
+      contributions.push({ date, symbol: "CASH", regime, value: interest });
+    }
     for (const bar of bars) {
       const quantity = shares.get(bar.symbol) ?? 0;
       if (quantity !== 0) {
@@ -202,6 +211,7 @@ function summarize(
   turnoverEntries: { date: string; value: number }[],
   contributionEntries: ContributionEntry[],
   startingEquity: number,
+  cashAnnualYieldPct: number,
   evaluationStartDate?: string
 ): PerformanceSummary {
   const equity = evaluationStartDate
@@ -227,7 +237,11 @@ function summarize(
     totalReturnPct: round((endingEquity / baselineEquity - 1) * 100),
     annualizedReturnPct: round(annualizedReturn * 100),
     annualizedVolatilityPct: round(annualizedVolatility * 100),
-    sharpeRatio: round(annualizedVolatility === 0 ? 0 : annualizedReturn / annualizedVolatility),
+    sharpeRatio: round(
+      annualizedVolatility === 0
+        ? 0
+        : (annualizedReturn - cashAnnualYieldPct / 100) / annualizedVolatility
+    ),
     maxDrawdownPct: round(drawdown * 100),
     turnover: round(
       turnoverEntries
@@ -360,6 +374,9 @@ function validateConfig(config: EtfMomentumConfig): void {
   }
   if (!Number.isInteger(config.skipEveryNthRebalance) || config.skipEveryNthRebalance < 0) {
     throw new Error("Skipped-rebalance interval must be a non-negative integer.");
+  }
+  if (!Number.isFinite(config.cashAnnualYieldPct) || config.cashAnnualYieldPct < 0) {
+    throw new Error("Cash annual yield must be a non-negative percentage.");
   }
 }
 

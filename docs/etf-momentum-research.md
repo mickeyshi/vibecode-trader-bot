@@ -73,13 +73,21 @@ points in risk-on conditions and 7.12 in risk-off conditions. These are P&L cont
 than regime-normalized return rates, but they show that most aggregate profit still came during a
 favorable equity trend.
 
+A constant 4% annual cash-yield sensitivity increased strategy return to 67.00% and benchmark return
+to 88.79%. Cash contributed 14.43 percentage points to the strategy and 8.93 to the 80%-SPY
+benchmark. Using 4% as the Sharpe hurdle reduced their Sharpe estimates to 0.61 and 0.57,
+respectively. This deliberately simple constant-rate scenario removes the zero-yield assumption; it
+does not substitute for a point-in-time Treasury rate series.
+
 ## Promotion gates
 
 Before coordinator integration:
 
 1. Obtain at least 10 years of point-in-time history or explicitly accept the shorter evidence.
 2. Add rolling out-of-sample evaluation with frozen parameter selection.
-3. Include a positive risk-free cash return and total-return benchmark validation.
+3. Independently validate the adjusted SPY total-return benchmark. A positive-yield cash sensitivity
+   and non-zero Sharpe hurdle are now included, but a historical point-in-time rate series remains
+   preferable.
 4. Completed: point-in-time regime and symbol contribution, calendar-year returns, and delayed and
    deterministically missed rebalances are reported.
 5. Add a portfolio-allocation boundary; do not force cross-symbol ranking into the per-symbol
