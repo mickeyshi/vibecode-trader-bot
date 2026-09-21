@@ -4,9 +4,12 @@ $ErrorActionPreference = "Stop"
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 Push-Location $repositoryRoot
 try {
+  if (-not (Test-Path -LiteralPath .env)) {
+    throw "Local .env is required for the supervised paper dry run."
+  }
   Get-Content .env | Where-Object { $_ -match '^\s*[^#][^=]+=' } | ForEach-Object {
     $entryName, $entryValue = $_ -split '=', 2
-    [Environment]::SetEnvironmentVariable($entryName.Trim(), $entryValue.Trim(), 'Process')
+    [Environment]::SetEnvironmentVariable($entryName.Trim(), $entryValue.Trim().Trim('"').Trim("'"), 'Process')
   }
   npm run paper-trading:coordinator -- --symbols $Symbol --strategy buy-and-hold --sizing allocation --target-allocation-pct 0.001 --max-order-notional 25 --max-position-notional 100 --max-executions-per-run 1 --max-notional-per-run 25 --iterations 1 --dry-run --out reports/live-ops-snapshot.json --history-dir reports/live-ops-history
   if ($LASTEXITCODE -ne 0) { throw "Paper dry-run coordinator exited with $LASTEXITCODE." }

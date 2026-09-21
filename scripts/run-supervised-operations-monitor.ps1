@@ -8,7 +8,7 @@ try {
       [Environment]::SetEnvironmentVariable($entryName.Trim(), $entryValue.Trim(), 'Process')
     }
   }
-  npm run operations:monitor -- --max-age-ms 600000
+  npm run operations:monitor -- --max-age-ms 900000
   if ($LASTEXITCODE -ne 0) { throw "Operations monitor detected an unhealthy heartbeat." }
 } finally {
   Pop-Location

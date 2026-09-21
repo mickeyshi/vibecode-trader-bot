@@ -177,7 +177,8 @@ npm run paper-supervisor:preview
 
 Registration requires an explicit operator decision and an elevated PowerShell session; see
 `docs/paper-operations-runbook.md`. The supplied coordinator task is permanently dry-run and cannot
-submit an order.
+submit an order. Its read-only monitor runs ten minutes later and uses a 15-minute heartbeat window,
+so a completed coordinator run is checked while still fresh.
 
 After at least five distinct bounded paper-trading days, evaluate the default operational soak
 criteria. This is a reliability gate, not evidence of profitability:

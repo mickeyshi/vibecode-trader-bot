@@ -20,7 +20,9 @@ unattended order-submitting schedule.
 Preview the Windows tasks with `npm run paper-supervisor:preview`. Use `-Apply` on
 `scripts/install-paper-supervisor.ps1` only to register the hard-coded dry-run and read-only monitor
 tasks. The wrapper contains `--dry-run` directly. Any submit-capable schedule requires a new ADR and
-explicit approval.
+explicit approval. The dry run starts at 09:35 local time on weekdays; the independent monitor runs
+at 09:45 and requires a completed heartbeat no more than 15 minutes old. The host must use the
+market's intended local time zone and remain awake for both tasks.
 
 ## Shutdown and Restart
 
